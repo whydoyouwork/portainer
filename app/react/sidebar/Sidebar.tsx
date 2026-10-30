@@ -1,3 +1,4 @@
+import { useRef } from 'react';
 import clsx from 'clsx';
 import { Home } from 'lucide-react';
 
@@ -31,7 +32,9 @@ function InnerSidebar() {
   const isAdminQuery = useIsEdgeAdmin({ noEnvScope: true });
   const isTeamLeader = useIsCurrentUserTeamLeader();
   const { isOpen } = useSidebarState();
-  useMobileDrawer(isOpen);
+  const rootRef = useRef<HTMLDivElement>(null);
+  const isDrawer = useMobileDrawer(isOpen, rootRef);
+  const isModal = isDrawer && isOpen;
 
   const settingsQuery = usePublicSettings();
 
@@ -49,9 +52,15 @@ function InnerSidebar() {
         className={styles.backdrop}
         data-cy="sidebar-backdrop"
         aria-hidden="true"
-        onClick={() => closeDrawer()}
+        onClick={() => closeDrawer({ returnFocus: true })}
       />
-      <div className={clsx(styles.root, 'sidebar flex flex-col')}>
+      <div
+        ref={rootRef}
+        className={clsx(styles.root, 'sidebar flex flex-col')}
+        role={isModal ? 'dialog' : undefined}
+        aria-modal={isModal ? true : undefined}
+        aria-label={isModal ? 'Main menu' : undefined}
+      >
         <UpgradeBEBannerWrapper />
         <nav
           className={clsx(

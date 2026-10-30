@@ -97,6 +97,19 @@
     position: fixed;
     inset: 0;
     z-index: 44;
-    background-color: rgb(0 0 0 / 40%);
+    /* the same black at 80% that the vendor's dialogs and sheets use */
+    background-color: rgb(0 0 0 / 80%);
+  }
+
+  .root {
+    overscroll-behavior: contain;
+  }
+}
+
+@media only screen and (max-width: 767px) and (prefers-reduced-motion: reduce) {
+  .root,
+  :global(#page-wrapper),
+  :global(#page-wrapper.open) {
+    transition: none;
   }
 }
