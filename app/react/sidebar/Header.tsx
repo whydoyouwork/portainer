@@ -19,7 +19,7 @@ export function Header({ logo: customLogo }: Props) {
 
   return (
     <div
-      className={clsx('flex w-full flex-wrap', {
+      className={clsx('flex w-full flex-wrap max-[767px]:pr-9', {
         'justify-center pr-5': !isOpen,
       })}
     >

@@ -104,6 +104,32 @@
   .root {
     overscroll-behavior: contain;
   }
+
+  /* The drawer's two rows: the upgrade banner (when there is one) above the menu. The Close menu button is the
+     first thing in the drawer for the keyboard and screen readers, and sits on the menu's first row, level with
+     the logo, so it costs no height. Placed by row, it stays level with the logo whether the banner is there or not. */
+  div.root {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-rows: auto minmax(0, 1fr);
+  }
+
+  div.root > nav {
+    grid-row: 2;
+    grid-column: 1;
+  }
+
+  /* 20px is the menu's top padding, 6px keeps the focus ring off the drawer's edge */
+  .closeButton {
+    grid-row: 2;
+    grid-column: 1;
+    justify-self: end;
+    align-self: start;
+    margin: 20px 6px 0 0;
+    /* above the menu, so the focus ring is painted over its background */
+    position: relative;
+    z-index: 1;
+  }
 }
 
 @media only screen and (max-width: 767px) and (prefers-reduced-motion: reduce) {
