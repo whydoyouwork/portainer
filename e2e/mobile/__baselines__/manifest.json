@@ -1,0 +1,18 @@
+{
+  "portainerVersion": "2.45.0",
+  "source": "unchanged build",
+  "files": [
+    "home-1440x900.png",
+    "dashboard-1440x900.png",
+    "containers-1440x900.png",
+    "containers-new-1440x900.png",
+    "images-1440x900.png",
+    "users-1440x900.png",
+    "home-1920x1080.png",
+    "dashboard-1920x1080.png",
+    "containers-1920x1080.png",
+    "containers-new-1920x1080.png",
+    "images-1920x1080.png",
+    "users-1920x1080.png"
+  ]
+}

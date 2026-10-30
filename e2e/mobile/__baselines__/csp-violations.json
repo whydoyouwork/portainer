@@ -1,0 +1,29 @@
+{
+  "note": "policy violations raised by the unchanged build while each view loads",
+  "views": {
+    "home": [
+      "script-src eval",
+      "script-src eval"
+    ],
+    "dashboard": [
+      "script-src eval",
+      "script-src eval"
+    ],
+    "containers": [
+      "script-src eval",
+      "script-src eval"
+    ],
+    "containers-new": [
+      "script-src eval",
+      "script-src eval"
+    ],
+    "images": [
+      "script-src eval",
+      "script-src eval"
+    ],
+    "users": [
+      "script-src eval",
+      "script-src eval"
+    ]
+  }
+}
