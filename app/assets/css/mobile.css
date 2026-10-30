@@ -96,6 +96,15 @@
     width: auto;
     padding: 10px 10px 0;
   }
+
+  /* ...and its text and outline use the next darker grey of the palette: the vendor's gray-6 is 2.5:1
+     on a light background, under the 4.5:1 that text needs. The dark and high contrast themes sit on a
+     dark background, where gray-6 is already clear, and a hovered badge keeps its blue. */
+  .be-indicator-container > .limited-be-link a.be-indicator:not(:hover) {
+    @apply border-gray-7 text-gray-7;
+    @apply th-dark:border-gray-6 th-dark:text-gray-6;
+    @apply th-highcontrast:border-gray-6 th-highcontrast:text-gray-6;
+  }
 }
 
 /* Touch screens below 992px: controls reach the 44px touch size, and fields use 16px text so that
