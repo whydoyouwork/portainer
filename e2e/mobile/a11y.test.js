@@ -1343,3 +1343,149 @@ describe('link-style buttons on phones and tablets', () => {
     });
   }
 });
+
+// ---- 16: keyboard focus is visible on controls that the vendor gives no ring --------------------------------
+
+// The controls, the page that has them, and the part of the page that holds the painted control (the checkboxes
+// of a table are drawn by their label, so the ring is checked around the box and not around the hidden input).
+const FOCUS_TARGETS = {
+  'the refresh button': { hash: CONTAINER, selector: 'button[data-cy="refresh-page-button"]', cover: true },
+  'the search field of a table': { hash: CONTAINER, selector: 'input[data-cy^="docker-containers-datatable-header"]', cover: true },
+  'the select all checkbox of a table': { hash: CONTAINER, selector: 'input[data-cy^="select-all-checkbox"]', cover: false },
+  'a row checkbox of a table': { hash: CONTAINER, selector: 'input[data-cy^="select-row-checkbox"]', cover: false },
+  'the rename button of a container': { hash: () => `#!/1/docker/containers/${containerId}`, selector: 'button[data-cy="container-edit-name-button"]', cover: true },
+  'the selected card of a box selector': { hash: '#!/1/docker/containers/new', selector: 'input.sr-only[type="radio"]:checked', box: 'next', cover: true },
+};
+
+// A keyboard user focuses the control: the pixels around it change (a ring is painted), the ring stands out 3:1
+// against what it is painted over, and, for a control drawn as one box, it goes all the way round.
+// The page re-renders now and then (the data is polled), which can drop focus or move the control between the two
+// pictures; the check is made again until the control keeps its focus and the page holds still.
+async function focusRingProblems(page, target, what) {
+  for (let attempt = 0; attempt < 6; attempt += 1) {
+    const result = await focusRingOnce(page, target, what);
+    if (!result.unstable) return result.problems;
+  }
+  return [`${what}: the page did not hold still long enough to compare the focused and the blurred control`];
+}
+
+async function focusRingOnce(page, { selector, box = 'self', cover }, what) {
+  const control = page.locator(selector).first();
+  if ((await control.count()) === 0) return { problems: [`${what}: no control matches ${selector}`] };
+  await control.evaluate((el, boxOf) => {
+    (boxOf === 'next' ? el.nextElementSibling : el).scrollIntoView({ block: 'center', behavior: 'instant' });
+    el.blur();
+  }, box);
+  await page.waitForTimeout(300);
+  const rect = await control.evaluate((el, boxOf) => {
+    const r = (boxOf === 'next' ? el.nextElementSibling : el).getBoundingClientRect();
+    return { x: r.x, y: r.y, width: r.width, height: r.height };
+  }, box);
+  const margin = 8;
+  const clip = {
+    x: Math.max(0, Math.floor(rect.x) - margin),
+    y: Math.max(0, Math.floor(rect.y) - margin),
+    width: Math.ceil(rect.width) + margin * 2,
+    height: Math.ceil(rect.height) + margin * 2,
+  };
+  const first = await page.screenshot({ clip });
+  const blurred = await page.screenshot({ clip });
+  if (!first.equals(blurred)) return { unstable: true };
+  // a key press first, so that the browser treats the focus as the keyboard's and matches :focus-visible
+  await page.keyboard.press('Shift');
+  await control.evaluate((el) => el.focus({ focusVisible: true, preventScroll: true }));
+  await page.waitForTimeout(250);
+  const held = await control.evaluate(
+    (el, { boxOf, at }) => {
+      const r = (boxOf === 'next' ? el.nextElementSibling : el).getBoundingClientRect();
+      return document.activeElement === el && r.x === at.x && r.y === at.y;
+    },
+    { boxOf: box, at: rect }
+  );
+  if (!held) return { unstable: true };
+  const focused = await page.screenshot({ clip });
+  const diff = await comparePng(browser, blurred, focused);
+  if (!diff.box) return { problems: [`${what}: no focus ring is painted`] };
+  const problems = [];
+  if (diff.ringContrast < 3) problems.push(`${what}: the focus ring has only ${diff.ringContrast.toFixed(2)}:1 contrast against what it is painted over`);
+  if (cover) {
+    const left = rect.x - clip.x;
+    const top = rect.y - clip.y;
+    if (diff.box.x > left + 3 || diff.box.y > top + 3 || diff.box.x + diff.box.width < left + rect.width - 3 || diff.box.y + diff.box.height < top + rect.height - 3) {
+      problems.push(
+        `${what}: the focus ring does not go all the way round the control (${JSON.stringify(diff.box)} in ${Math.round(rect.width)}x${Math.round(rect.height)} at ${Math.round(left)},${Math.round(top)})`
+      );
+    }
+  }
+  return { problems };
+}
+
+// Takes every ring away, including the ones that are set with !important on a more specific selector.
+const STRONG_NO_RINGS =
+  ':root:root:root body *:focus, :root:root:root body *:focus-visible, :root:root:root body .md-checkbox input:focus-visible + label:before { outline: none !important; box-shadow: none !important }';
+
+const hashOf = (target) => (typeof target.hash === 'function' ? target.hash() : target.hash);
+
+describe('keyboard focus is visible on phones and tablets', () => {
+  // Mutation: remove the focus rules of bootstrap-mobile.css, datatable.css and BoxOption.module.css (as in 5be42f2):
+  // the vendor takes the ring off these controls, and nothing is painted when one has focus.
+  for (const viewport of [phone390, tablet, tablet991]) {
+    for (const [name, target] of Object.entries(FOCUS_TARGETS)) {
+      test(`${name} shows a focus ring at ${viewport.name}`, { timeout: TEST_TIMEOUT }, async () => {
+        await onView(viewport, hashOf(target), async (page) => {
+          assert.deepEqual(await focusRingProblems(page, target, name), []);
+        });
+      });
+    }
+  }
+
+  // Planted fault: every ring taken away.
+  test('planted fault: a control without a ring is reported', { timeout: TEST_TIMEOUT }, async () => {
+    await onView(phone390, CONTAINER, async (page) => {
+      await page.addStyleTag({ content: `${STRONG_NO_RINGS}` });
+      const target = FOCUS_TARGETS['the refresh button'];
+      assert.ok((await focusRingProblems(page, target, 'the refresh button')).some((p) => /no focus ring is painted/.test(p)));
+      assert.ok((await focusRingProblems(page, FOCUS_TARGETS['a row checkbox of a table'], 'a row checkbox')).some((p) => /no focus ring is painted/.test(p)));
+    });
+  });
+
+  // Planted fault: a ring too pale to see on the white page.
+  test('planted fault: a ring under 3:1 is reported', { timeout: TEST_TIMEOUT }, async () => {
+    await onView(phone390, CONTAINER, async (page) => {
+      await page.addStyleTag({
+        content: ':root:root:root body *:focus-visible { outline: 3px solid rgb(235, 235, 235) !important; outline-offset: -3px !important; box-shadow: none !important }',
+      });
+      const problems = await focusRingProblems(page, FOCUS_TARGETS['the refresh button'], 'the refresh button');
+      assert.ok(
+        problems.some((p) => /contrast/.test(p)),
+        `got: ${problems.join('; ')}`
+      );
+    });
+  });
+
+  // Planted fault: a ring that covers only the top of the control.
+  test('planted fault: a ring that does not go all the way round is reported', { timeout: TEST_TIMEOUT }, async () => {
+    await onView(phone390, CONTAINER, async (page) => {
+      await page.addStyleTag({
+        content: ':root:root:root body button[data-cy="refresh-page-button"]:focus-visible { outline: none !important; box-shadow: 0 -3px 0 0 rgb(0, 0, 0) !important }',
+      });
+      const problems = await focusRingProblems(page, FOCUS_TARGETS['the refresh button'], 'the refresh button');
+      assert.ok(
+        problems.some((p) => /all the way round/.test(p)),
+        `got: ${problems.join('; ')}`
+      );
+    });
+  });
+
+  // From 992px up the vendor's controls are left alone.
+  // Mutation: take the media queries off the focus rules.
+  for (const viewport of [desktop992, desktop1440]) {
+    for (const [name, target] of Object.entries(FOCUS_TARGETS)) {
+      test(`${name} keeps the vendor's look (no ring added) at ${viewport.name}`, { timeout: TEST_TIMEOUT }, async () => {
+        await onView(viewport, hashOf(target), async (page) => {
+          assert.deepEqual(await focusRingProblems(page, target, name), [`${name}: no focus ring is painted`]);
+        });
+      });
+    }
+  }
+});

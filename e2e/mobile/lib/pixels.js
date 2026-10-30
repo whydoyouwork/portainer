@@ -29,6 +29,7 @@ function compareInBrowser([expectedBase64, actualBase64, channelTolerance]) {
       sameSize: expected.width === actual.width && expected.height === actual.height,
       differing: 0,
       maxDelta: 0,
+      ringContrast: 0,
       box: null,
       diffPng: null,
     };
@@ -38,6 +39,13 @@ function compareInBrowser([expectedBase64, actualBase64, channelTolerance]) {
 
     const { width, height } = expected;
     const out = new ImageData(width, height);
+    const luminance = (data, i) => {
+      const [r, g, b] = [data[i], data[i + 1], data[i + 2]].map((v) => {
+        const s = v / 255;
+        return s <= 0.03928 ? s / 12.92 : ((s + 0.055) / 1.055) ** 2.4;
+      });
+      return 0.2126 * r + 0.7152 * g + 0.0722 * b;
+    };
     let minX = width;
     let minY = height;
     let maxX = -1;
@@ -58,6 +66,8 @@ function compareInBrowser([expectedBase64, actualBase64, channelTolerance]) {
         out.data[i + 3] = 255;
       } else {
         result.differing += 1;
+        const [hi, lo] = [luminance(expected.data, i), luminance(actual.data, i)].sort((a, b) => b - a);
+        result.ringContrast = Math.max(result.ringContrast, (hi + 0.05) / (lo + 0.05));
         const pixel = i / 4;
         const x = pixel % width;
         const y = Math.floor(pixel / width);
@@ -87,7 +97,8 @@ function compareInBrowser([expectedBase64, actualBase64, channelTolerance]) {
 // blank page is used for decoding and closed again. The result has
 // `differing` (pixels beyond the tolerance), `maxDelta` (the largest channel
 // difference seen anywhere, even within the tolerance), `box` (bounding box of
-// the differing pixels) and `diffPng` (a picture of them, or null).
+// the differing pixels), `ringContrast` (the largest WCAG contrast ratio between a differing pixel and the same
+// pixel in the other image) and `diffPng` (a picture of them, or null).
 async function comparePng(browser, expectedPng, actualPng, { channelTolerance = 0 } = {}) {
   const context = await browser.newContext();
   try {
