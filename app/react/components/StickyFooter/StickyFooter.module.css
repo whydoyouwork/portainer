@@ -20,9 +20,10 @@
   }
 }
 
-/* Phones: when a field gets focus the page scrolls it into view, and the bar must not cover it. The bar
-   can wrap onto several lines, so leave room for its tallest case, as the container's bottom padding does. */
-@media only screen and (max-width: 767px) {
+/* Phones and tablets: when a field gets focus the page scrolls it into view, and the bar must not cover it. The bar
+   can wrap onto several lines, so leave room for its tallest case, as the container's bottom padding does. A phone on
+   its side is as wide as a tablet, so this stops where the desktop layout starts. */
+@media only screen and (max-width: 991px) {
   :global(html):has(.actionBar) {
     scroll-padding-bottom: 7rem;
   }
