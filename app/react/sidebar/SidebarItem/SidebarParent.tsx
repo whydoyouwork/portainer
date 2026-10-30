@@ -93,7 +93,6 @@ export function SidebarParent({
             )}
             data-cy={`${dataCy}-link`}
             aria-label={flyout.isEnabled ? title : undefined}
-            aria-haspopup={flyout.isEnabled ? true : undefined}
             aria-expanded={flyout.isEnabled ? flyout.isOpen : undefined}
             aria-controls={flyout.isOpen ? flyoutId : undefined}
           >

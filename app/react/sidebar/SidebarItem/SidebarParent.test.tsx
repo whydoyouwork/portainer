@@ -107,7 +107,8 @@ describe('SidebarParent on the collapsed rail', () => {
       renderRail();
 
       expect(getParentLink()).toHaveAttribute('aria-expanded', 'false');
-      expect(getParentLink()).toHaveAttribute('aria-haspopup', 'true');
+      // it opens a list of links, not a menu widget, so it must not claim a pop-up menu
+      expect(getParentLink()).not.toHaveAttribute('aria-haspopup');
       expect(getParentLink()).toHaveAccessibleName('Parent');
 
       await user.click(getParentLink());
