@@ -88,6 +88,45 @@ describe('the comparison can tell a change from no change', () => {
     assert.equal(beyond.differing, 64, `${CHANNEL_TOLERANCE + 1}/255 should be treated as different`);
   });
 
+  test('a capture is never taken while a request indicator is on screen', { timeout: TEST_TIMEOUT }, async () => {
+    // A loading bar that never goes away, as if a request never finished.
+    const capture = withPage(browser, storageState, home, async (page) => {
+      await page.addInitScript(() => {
+        new MutationObserver(() => {
+          if (document.body && !document.getElementById('loading-bar')) {
+            const bar = document.createElement('div');
+            bar.id = 'loading-bar';
+            document.body.appendChild(bar);
+          }
+        }).observe(document, { childList: true, subtree: true });
+      });
+      return captureView(page, BASE_URL, 'home');
+    });
+    await assert.rejects(capture, /a request kept running/);
+  });
+
+  test('a request indicator stuck on the first load is waited out by loading the view again', { timeout: TEST_TIMEOUT }, async () => {
+    const baseline = readBaseline('home', home);
+    const shot = await withPage(browser, storageState, home, async (page) => {
+      await page.addInitScript(() => {
+        if (location.protocol === 'about:' || sessionStorage.getItem('planted-indicator-shown')) {
+          return;
+        }
+        sessionStorage.setItem('planted-indicator-shown', '1');
+        new MutationObserver(() => {
+          if (document.body && !document.getElementById('loading-bar')) {
+            const bar = document.createElement('div');
+            bar.id = 'loading-bar';
+            document.body.appendChild(bar);
+          }
+        }).observe(document, { childList: true, subtree: true });
+      });
+      return captureView(page, BASE_URL, 'home');
+    });
+    const result = await comparePng(browser, baseline, shot, { channelTolerance: CHANNEL_TOLERANCE });
+    assert.equal(result.differing, 0, `the second load should match the baseline, got ${result.differing} differing pixels`);
+  });
+
   test('images of different sizes are reported as different', { timeout: TEST_TIMEOUT }, async () => {
     const result = await comparePng(browser, await greySquare(100), readBaseline('home', home), { channelTolerance: CHANNEL_TOLERANCE });
     assert.equal(result.sameSize, false);

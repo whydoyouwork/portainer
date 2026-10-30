@@ -84,7 +84,7 @@ function baselineName(viewKey, viewport) {
 async function captureView(page, baseURL, viewKey, { extraCss = '' } = {}) {
   await page.route('**/api/motd', (route) => route.fulfill({ status: 200, contentType: 'application/json', body: fs.readFileSync(MOTD_FIXTURE) }));
   await page.route('**/api/endpoints/*/dockerhub/*', (route) => route.fulfill({ status: 200, contentType: 'application/json', body: DOCKER_HUB_RATE_LIMIT }));
-  await openView(page, baseURL, VIEWS[viewKey]);
+  await openViewWithNoRequestRunning(page, baseURL, VIEWS[viewKey]);
   const pinned = await page.evaluate(pinText, PINNED_TEXT);
   if (viewKey === 'home' && !pinned.timestamp) {
     throw new Error('expected to find the environment timestamp on the home view and found none; update the pinned text in lib/capture.js');
@@ -95,21 +95,63 @@ async function captureView(page, baseURL, viewKey, { extraCss = '' } = {}) {
   return stableScreenshot(page);
 }
 
-// Takes full-page screenshots until two in a row are byte-identical, so a late
-// re-render (seen once or twice in a hundred captures on a busy machine) is
-// never the one that is compared. A real layout change is stable, so it is
-// still caught by the comparison with the baseline.
+// Opens the view and waits until no request indicator is on screen, before
+// animations are frozen: freezing one part-way through its exit would leave it
+// on screen for good. Rarely (about once in thirty loads on a busy machine) an
+// indicator outlasts the wait; the view is then loaded once more. A layout
+// change shows on every load, so a second load cannot hide one.
+async function openViewWithNoRequestRunning(page, baseURL, hash, { loads = 2, timeout = 15000 } = {}) {
+  for (let load = 1; load <= loads; load += 1) {
+    if (load > 1) {
+      await page.goto('about:blank');
+    }
+    await openView(page, baseURL, hash);
+    try {
+      await page.waitForFunction((selector) => document.querySelector(selector) === null, REQUEST_INDICATORS, { timeout });
+      return;
+    } catch (error) {
+      if (error.name !== 'TimeoutError') {
+        throw error;
+      }
+    }
+  }
+  throw new Error(`a request kept running: a request indicator (${REQUEST_INDICATORS}) stayed on screen for ${timeout}ms on each of ${loads} loads (${page.url()})`);
+}
+
+// The application's own request indicators: the AngularJS loading bar and its
+// spinner, and the bar shown for React requests. Each is in the page only while
+// a request is running. With animations frozen they stop moving, so two
+// screenshots taken during a request can be identical and look settled. Seen
+// once in about twenty captures of the home view: a thin bar across the top
+// and a spinner by the user menu, 129 pixels.
+const REQUEST_INDICATORS = '#loading-bar, #loading-bar-spinner, #nprogress';
+
+function requestRunning(page) {
+  return page.evaluate((selector) => document.querySelector(selector) !== null, REQUEST_INDICATORS);
+}
+
+// Takes full-page screenshots until two in a row are byte-identical with no
+// request running, so a late re-render or a background request (seen once or
+// twice in a hundred captures on a busy machine) is never the one that is
+// compared. A real layout change is stable, so it is still caught by the
+// comparison with the baseline.
 async function stableScreenshot(page, { attempts = 8, gapMs = 500 } = {}) {
-  let previous = await page.screenshot({ fullPage: true, animations: 'disabled', caret: 'hide' });
-  for (let attempt = 1; attempt < attempts; attempt += 1) {
-    await page.waitForTimeout(gapMs);
+  let previous = null;
+  for (let attempt = 0; attempt < attempts; attempt += 1) {
+    if (attempt > 0) {
+      await page.waitForTimeout(gapMs);
+    }
+    if (await requestRunning(page)) {
+      previous = null;
+      continue;
+    }
     const next = await page.screenshot({ fullPage: true, animations: 'disabled', caret: 'hide' });
-    if (next.equals(previous)) {
+    if (previous && next.equals(previous) && !(await requestRunning(page))) {
       return next;
     }
     previous = next;
   }
-  throw new Error(`the page kept changing for ${attempts} screenshots in a row (${page.url()})`);
+  throw new Error(`the page kept changing, or a request kept running, for ${attempts} screenshots in a row (${page.url()})`);
 }
 
-module.exports = { BASELINE_DIR, OUTPUT_DIR, MOTD_FIXTURE, CHANNEL_TOLERANCE, DESKTOP_VIEWPORTS, FREEZE_CSS, baselineName, captureView };
+module.exports = { BASELINE_DIR, OUTPUT_DIR, MOTD_FIXTURE, CHANNEL_TOLERANCE, DESKTOP_VIEWPORTS, FREEZE_CSS, REQUEST_INDICATORS, baselineName, captureView };
