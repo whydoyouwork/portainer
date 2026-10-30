@@ -30,10 +30,14 @@ const DRAWER_BREAKPOINT = 768;
 // `mobile` makes Chromium behave like a phone browser: it honours (or
 // ignores) the viewport meta tag and reports touch support.
 const VIEWPORTS = {
+  phone320: { name: 'phone-320x568', width: 320, height: 568, mobile: true },
   phone360: { name: 'phone-360x740', width: 360, height: 740, mobile: true },
   phone390: { name: 'phone-390x844', width: 390, height: 844, mobile: true },
   phoneLandscape: { name: 'phone-landscape-844x390', width: 844, height: 390, mobile: true },
+  // Both sides of the 768px (drawer) and 992px (sidebar rail) breakpoints.
+  tablet767: { name: 'tablet-767x1024', width: 767, height: 1024, mobile: true },
   tablet: { name: 'tablet-768x1024', width: 768, height: 1024, mobile: true },
+  tablet991: { name: 'tablet-991x800', width: 991, height: 800, mobile: true },
   desktop1440: { name: 'desktop-1440x900', width: 1440, height: 900, mobile: false },
   desktop1920: { name: 'desktop-1920x1080', width: 1920, height: 1080, mobile: false },
 };
