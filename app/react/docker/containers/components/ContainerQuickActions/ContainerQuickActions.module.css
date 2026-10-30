@@ -1,3 +1,19 @@
 .root {
   display: inline-flex;
 }
+
+/* Touch screens below 992px: each icon is a link of at least 24px by 24px, so a fingertip lands on one link and
+   not between two. The icon keeps its drawn size. */
+@media only screen and (max-width: 991px) and (pointer: coarse) {
+  .root a {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 24px;
+    min-height: 24px;
+  }
+
+  .root a > :global(.space-right) {
+    margin-right: 0;
+  }
+}
