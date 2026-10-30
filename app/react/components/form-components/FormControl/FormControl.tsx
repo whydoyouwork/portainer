@@ -80,7 +80,8 @@ function sizeClassLabel(size: Size) {
     case 'medium':
       return 'col-sm-4 col-lg-3';
     case 'xsmall':
-      return 'col-sm-1';
+      // on tablets (768-991px) col-sm-1 is narrower than the word "Entrypoint", so the label gets a sixth
+      return 'col-sm-1 md:max-lg:!w-1/6';
     case 'vertical':
       return '';
     case 'small':
@@ -96,7 +97,7 @@ function sizeClassChildren(size: Size) {
     case 'medium':
       return 'col-sm-8 col-lg-9';
     case 'xsmall':
-      return 'col-sm-11';
+      return 'col-sm-11 md:max-lg:!w-5/6';
     case 'vertical':
       return '';
     case 'small':
