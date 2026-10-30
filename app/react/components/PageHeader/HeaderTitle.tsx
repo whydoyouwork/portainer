@@ -11,7 +11,7 @@ export function HeaderTitle() {
   useHeaderContext();
 
   return (
-    <div className="flex items-center">
+    <div className="flex items-center max-md:shrink-0">
       {isBE && <AskAILink />}
       <NotificationsMenu />
       <ContextHelp />

@@ -362,3 +362,19 @@
 .tableMenu .menuContent .md-radio:first-child {
   margin: 0;
 }
+
+/* Phones: let the table toolbar wrap onto several lines instead of clipping its buttons. */
+@media only screen and (max-width: 767px) {
+  .datatable .toolBar > div {
+    flex-wrap: wrap;
+  }
+
+  .datatable .toolBar .btn-group {
+    display: flex;
+    flex-wrap: wrap;
+  }
+
+  .datatable .toolBar .searchBar {
+    max-width: none;
+  }
+}
