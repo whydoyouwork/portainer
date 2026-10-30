@@ -371,6 +371,13 @@
   .datatable .toolBar .flex:not(.searchBar) {
     flex-wrap: wrap;
   }
+
+  /* The search field has no outline and the box around it does not change when the field has focus: a keyboard
+     user gets Bootstrap's own ring inside the field. */
+  .searchBar .searchInput:focus-visible {
+    outline: -webkit-focus-ring-color auto 5px;
+    outline-offset: -2px;
+  }
 }
 
 /* Phones: let the search box use the full line it wraps onto. */

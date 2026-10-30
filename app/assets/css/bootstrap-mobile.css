@@ -16,6 +16,24 @@
     display: flex;
     flex-wrap: wrap;
   }
+
+  /* ---- Keyboard focus ---- */
+
+  /* The vendor takes the focus ring off its icon-only buttons (the refresh button, the rename button) and hides
+     the real checkbox of the table's selection boxes behind a drawn one, so a keyboard user cannot see where
+     focus is. They show Bootstrap's own ring (the one its links and fields use), inside the button so that
+     nothing clips it. `.btn` removes its outline with !important, so this has to as well. A button that sets its
+     own ring (a `focus-visible:` utility class) keeps it. */
+  .btn.btn-none:not([class*='focus-visible:']):focus-visible {
+    outline: -webkit-focus-ring-color auto 5px !important;
+    outline-offset: -2px !important;
+  }
+
+  .md-checkbox input[type='checkbox']:focus-visible + label:before {
+    outline: -webkit-focus-ring-color auto 5px;
+    outline-offset: 1px;
+  }
+
 }
 
 /* Tablets (768px to 991px) */

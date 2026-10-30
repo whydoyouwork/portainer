@@ -46,3 +46,12 @@
 
   box-shadow: none;
 }
+
+/* Tablets and phones: the input is hidden, so the card shows Bootstrap's own focus ring while it has keyboard
+   focus. The ring sits inside the card's edge, where nothing clips it. */
+@media only screen and (max-width: 991px) {
+  .root input:focus-visible + label {
+    outline: -webkit-focus-ring-color auto 5px;
+    outline-offset: -2px;
+  }
+}
