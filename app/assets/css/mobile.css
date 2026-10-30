@@ -1,21 +1,16 @@
 /*
- * Small screens: layout fixes for the Bootstrap 3 patterns that the AngularJS views share.
+ * Small screens: layout fixes for the application's own shell and shared components (the sidebar drawer, the
+ * header, blocklist cards, selects, the feature badge). The Bootstrap classes themselves (buttons, tables,
+ * widgets, fields, tabs) are in bootstrap-mobile.css.
  *
  * Everything here sits inside a max-width media query, so widths of 992px and up are unchanged.
  * The rules rearrange what is already on the page (wrap, stack, break long values); they do not
- * change colours, type or spacing steps. Tailwind classes on React components carry the fixes
- * that belong to one component; this file carries the ones many views share.
+ * change colours or type. Tailwind classes on React components carry the fixes that belong to one
+ * component; this file carries the ones many views share.
  */
 
 /* Tablets and phones (below 992px) */
 @media only screen and (max-width: 991px) {
-  /* Button groups and button rows wrap onto another line instead of running off the page. */
-  .btn-group,
-  .btn-toolbar {
-    display: flex;
-    flex-wrap: wrap;
-  }
-
   /* `where` keeps this at zero specificity, so a component that sets flex-nowrap still wins. */
   :where(.flex:not(.searchBar):has(> .btn-group, > .btn, > button)) {
     flex-wrap: wrap;
@@ -24,36 +19,6 @@
 
 /* Phones (below 768px) */
 @media only screen and (max-width: 767px) {
-  /* A long button label wraps rather than widening the button past the screen. */
-  .btn {
-    white-space: normal;
-  }
-
-  /* ...except in an input group, where the button sits beside its field on one line. */
-  .input-group-btn .btn {
-    white-space: nowrap;
-  }
-
-  /* Long unbroken values (hashes, URLs, image references) break instead of widening their card. */
-  .widget a,
-  .widget p,
-  .widget label,
-  .widget-body td,
-  .widget-body th {
-    overflow-wrap: anywhere;
-  }
-
-  /* The label column of the key/value tables opts out of breaking; on a phone it must give way. */
-  .widget-body td.\!break-normal {
-    overflow-wrap: anywhere !important;
-  }
-
-  /* The label column of a key/value table keeps room for its longest word, so a long value beside it
-     breaks instead of squeezing the label letter by letter. */
-  .widget-body table.table:not(.table-responsive table) td:first-child {
-    min-width: 6rem;
-  }
-
   /* Icon + text lines may shrink to the width of their card; a paragraph of them takes the full line. */
   .vertical-center,
   .vertical-center > span {
@@ -105,6 +70,11 @@
     @apply border-gray-7 text-gray-7;
   }
 
+  /* In a table cell the badge may wrap onto two lines, so it does not set the width of the label column. */
+  td .be-indicator {
+    white-space: normal;
+  }
+
   /* The version in the drawer's footer is a text-sized button; it gets a target of at least 24px. */
   .sidebar [data-cy='portainerSidebar-versionNumber'] {
     display: inline-flex;
@@ -116,61 +86,12 @@
   .sidebar [data-cy='portainerSidebar-versionNumber']:focus-visible {
     outline: revert;
   }
-
-  /* A button in a table that scrolls sideways keeps its label on one line: the table has the room, and breaking
-     "Leave Network" into pieces is not a layout. Tables that do not scroll keep wrapping the label. */
-  .table-responsive td .btn,
-  .datatable td .btn,
-  [role='region'] td .btn {
-    white-space: nowrap;
-    overflow-wrap: normal;
-  }
 }
 
-/* Touch screens below 992px: controls reach the 44px touch size, and fields use 16px text so that
-   iOS Safari does not zoom the page when one is focused. Mouse users at the same width keep the
-   vendor's denser controls. Controls inside table rows are left alone: their row opens the same
-   actions. */
+/* Touch screens below 992px: a taller button in a section title must not float down over the text that follows it. */
 @media only screen and (max-width: 991px) and (pointer: coarse) {
-  .btn:not(table .btn) {
-    min-height: 44px;
-  }
-
-  .btn:not(table .btn):not(.btn-link) {
-    min-width: 44px;
-  }
-
-  /* Buttons that are not Bootstrap buttons: sort bars, pagination, the table settings gear, stepper
-     steps. The date range picker's two icon buttons keep their 24px: they share one narrow line with
-     the fields, and 24px is the WCAG 2.2 minimum. */
-  button:not(.btn):not(table button):not(.sidebar button):not(.react-daterange-picker__button) {
-    min-height: 44px;
-    min-width: 44px;
-  }
-
-  /* Tabs and pills are navigation: their rows reach the touch size too. */
-  .nav-tabs > li > a,
-  .nav-pills > li > a {
-    display: flex;
-    align-items: center;
-    min-height: 44px;
-  }
-
-  /* A taller button in a section title must not float down over the text that follows it. */
   .form-section-title {
     display: flow-root;
-  }
-
-  .form-control:not(table .form-control),
-  select:not(table select),
-  textarea:not(table textarea),
-  input[type='text']:not(table input),
-  input[type='password']:not(table input),
-  input[type='number']:not(table input),
-  input[type='email']:not(table input),
-  input[type='url']:not(table input) {
-    min-height: 44px;
-    font-size: 16px;
   }
 }
 

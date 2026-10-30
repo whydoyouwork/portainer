@@ -371,16 +371,16 @@
   .datatable .toolBar .flex:not(.searchBar) {
     flex-wrap: wrap;
   }
-
-  .datatable .toolBar .btn-group {
-    display: flex;
-    flex-wrap: wrap;
-  }
 }
 
 /* Phones: let the search box use the full line it wraps onto. */
 @media only screen and (max-width: 767px) {
   .datatable .toolBar .searchBar {
     max-width: none;
+  }
+
+  /* The toolbar's padding follows the widget's (see bootstrap-mobile.css). */
+  .datatable .toolBar {
+    padding: 14px;
   }
 }

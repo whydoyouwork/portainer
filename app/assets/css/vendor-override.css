@@ -434,18 +434,3 @@ input:-webkit-autofill {
 .tippy-content {
   padding: 0;
 }
-
-/* Tablets: Bootstrap 3 keeps justified tabs on one row from 768px up, which overflows the
-   page between 768px and 991px. Let them wrap there; other widths are unchanged. */
-@media (min-width: 768px) and (max-width: 991px) {
-  .nav-justified {
-    display: flex;
-    flex-wrap: wrap;
-  }
-
-  .nav-justified > li {
-    display: block;
-    flex: 1 1 auto;
-    width: auto;
-  }
-}

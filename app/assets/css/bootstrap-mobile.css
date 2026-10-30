@@ -1,0 +1,207 @@
+/*
+ * Bootstrap on small screens: phone and tablet overrides of the Bootstrap 3 classes the views share
+ * (.btn, .table, .widget, .form-control, .nav-tabs ...). The vendor's own overrides stay in
+ * bootstrap-override.css and vendor-override.css; rules for one component stay with that component,
+ * and the shared ones for the application's own shell are in mobile.css.
+ *
+ * Every rule here sits inside a max-width media query, so widths of 992px and up are unchanged.
+ * The rules rearrange and tighten what is already on the page; they do not change colours or type.
+ */
+
+/* Tablets and phones (below 992px) */
+@media only screen and (max-width: 991px) {
+  /* Button groups and button rows wrap onto another line instead of running off the page. */
+  .btn-group,
+  .btn-toolbar {
+    display: flex;
+    flex-wrap: wrap;
+  }
+}
+
+/* Tablets (768px to 991px) */
+@media only screen and (min-width: 768px) and (max-width: 991px) {
+  /* Bootstrap 3 keeps justified tabs on one row from 768px up, which overflows the page between 768px and
+     991px. Let them wrap there. */
+  .nav-justified {
+    display: flex;
+    flex-wrap: wrap;
+  }
+
+  .nav-justified > li {
+    display: block;
+    flex: 1 1 auto;
+    width: auto;
+  }
+}
+
+/* Phones (below 768px) */
+@media only screen and (max-width: 767px) {
+  /* ---- Buttons ---- */
+
+  /* A long button label wraps rather than widening the button past the screen. */
+  .btn {
+    white-space: normal;
+  }
+
+  /* ...except in an input group, where the button sits beside its field on one line. */
+  .input-group-btn .btn {
+    white-space: nowrap;
+  }
+
+  /* A button in a table keeps each word whole: "Update" never breaks into letters (the vendor breaks words in
+     table cells, and a button inherits it). */
+  .widget-body td .btn {
+    overflow-wrap: normal;
+    word-break: normal;
+  }
+
+  /* A button in a table that scrolls sideways keeps its label on one line: the table has the room, and breaking
+     "Leave Network" into pieces is not a layout. Tables that do not scroll keep wrapping the label. */
+  .table-responsive td .btn,
+  .datatable td .btn,
+  [role='region'] td .btn {
+    white-space: nowrap;
+  }
+
+  /* ---- Long values ---- */
+
+  /* Long unbroken values (hashes, URLs, image references) break instead of widening their card. */
+  .widget a,
+  .widget p,
+  .widget label,
+  .widget-body td,
+  .widget-body th {
+    overflow-wrap: anywhere;
+  }
+
+  /* The label column of the key/value tables opts out of breaking; on a phone it must give way. */
+  .widget-body td.\!break-normal {
+    overflow-wrap: anywhere !important;
+  }
+
+  /* ---- Tables ---- */
+
+  /* Cells use 6px above and below and 8px beside the next cell; the vendor's 8px all round leaves a phone
+     with narrow columns. Condensed tables already use 5px. */
+  .table:not(.table-condensed) > thead > tr > th,
+  .table:not(.table-condensed) > tbody > tr > th,
+  .table:not(.table-condensed) > tfoot > tr > th,
+  .table:not(.table-condensed) > thead > tr > td,
+  .table:not(.table-condensed) > tbody > tr > td,
+  .table:not(.table-condensed) > tfoot > tr > td {
+    padding: 6px 8px;
+  }
+
+  /* The first and last cell of a table in a widget line up with the widget's own padding (below). */
+  .widget .table:not(td .table) > thead > tr > th:first-child,
+  .widget .table:not(td .table) > tbody > tr > th:first-child,
+  .widget .table:not(td .table) > tfoot > tr > th:first-child,
+  .widget .table:not(td .table) > thead > tr > td:first-child,
+  .widget .table:not(td .table) > tbody > tr > td:first-child,
+  .widget .table:not(td .table) > tfoot > tr > td:first-child {
+    padding-left: 14px;
+  }
+
+  .widget .table:not(td .table) > thead > tr > th:last-child,
+  .widget .table:not(td .table) > tbody > tr > th:last-child,
+  .widget .table:not(td .table) > tfoot > tr > th:last-child,
+  .widget .table:not(td .table) > thead > tr > td:last-child,
+  .widget .table:not(td .table) > tbody > tr > td:last-child,
+  .widget .table:not(td .table) > tfoot > tr > td:last-child {
+    padding-right: 14px;
+  }
+
+  /* The first column keeps room for its longest word, so a long value beside it breaks instead of squeezing the
+     label letter by letter. */
+  .widget-body table.table:not(.table-responsive table, td .table) > tbody > tr > td:first-child {
+    min-width: 6rem;
+  }
+
+  /* A table inside a cell (the environment variables, the labels, the restart policy) has less room: its first
+     column keeps 3rem, so the controls beside it are not squeezed. */
+  .widget-body td table.table > tbody > tr > td:first-child {
+    min-width: 3rem;
+  }
+
+  /* The label column of a key/value table (a table with no header row) takes what its longest word needs and no
+     more, so the values beside it get the room. The floor keeps "configuration" whole; longer labels break. */
+  .widget-body table.table:not(.table-responsive table, td .table):not(:has(> thead)) > tbody > tr > td:first-child {
+    width: 1%;
+    min-width: 7.5rem;
+  }
+
+  /* ---- Widgets ---- */
+
+  .widget .widget-header {
+    padding: 14px 14px 8px;
+  }
+
+  .widget .widget-body,
+  .widget .widget-footer {
+    padding: 14px;
+  }
+
+  .widget .widget-body.no-padding .error,
+  .widget .widget-body.no-padding .message {
+    padding: 14px;
+  }
+
+  /* Tables inside widgets extend the full width of the widget, over its padding. */
+  .widget-body:not(.no-padding) > .table,
+  .widget-body:not(.no-padding) > .widget-content > .table,
+  .widget-body:not(.no-padding) > .widget-content > form > .table {
+    margin: 0 -14px;
+    width: calc(100% + 28px);
+    max-width: calc(100% + 28px);
+  }
+}
+
+/* Narrow phones (below 360px) */
+@media only screen and (max-width: 359px) {
+  /* The label column keeps 6rem: with the restart policy's table in the next column, 7.5rem is wider than the card. */
+  .widget-body table.table:not(.table-responsive table, td .table):not(:has(> thead)) > tbody > tr > td:first-child {
+    min-width: 6rem;
+  }
+}
+
+/* Touch screens below 992px: controls reach the 44px touch size, and fields use 16px text so that
+   iOS Safari does not zoom the page when one is focused. Mouse users at the same width keep the
+   vendor's denser controls. Controls inside table rows are left alone: their row opens the same
+   actions. */
+@media only screen and (max-width: 991px) and (pointer: coarse) {
+  .btn:not(table .btn) {
+    min-height: 44px;
+  }
+
+  .btn:not(table .btn):not(.btn-link) {
+    min-width: 44px;
+  }
+
+  /* Buttons that are not Bootstrap buttons: sort bars, pagination, the table settings gear, stepper
+     steps. The date range picker's two icon buttons keep their 24px: they share one narrow line with
+     the fields, and 24px is the WCAG 2.2 minimum. */
+  button:not(.btn):not(table button):not(.sidebar button):not(.react-daterange-picker__button) {
+    min-height: 44px;
+    min-width: 44px;
+  }
+
+  /* Tabs and pills are navigation: their rows reach the touch size too. */
+  .nav-tabs > li > a,
+  .nav-pills > li > a {
+    display: flex;
+    align-items: center;
+    min-height: 44px;
+  }
+
+  .form-control:not(table .form-control),
+  select:not(table select),
+  textarea:not(table textarea),
+  input[type='text']:not(table input),
+  input[type='password']:not(table input),
+  input[type='number']:not(table input),
+  input[type='email']:not(table input),
+  input[type='url']:not(table input) {
+    min-height: 44px;
+    font-size: 16px;
+  }
+}
