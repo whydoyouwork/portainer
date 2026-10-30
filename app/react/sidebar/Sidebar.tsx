@@ -15,6 +15,7 @@ import { Header } from './Header';
 import { SidebarProvider, useSidebarState } from './useSidebarState';
 import { UpgradeBEBannerWrapper } from './UpgradeBEBanner';
 import { AppDeliverySidebar } from './AppDeliverySidebar';
+import { closeDrawer, useMobileDrawer } from './useMobileDrawer';
 
 export function Sidebar() {
   return (
@@ -30,6 +31,7 @@ function InnerSidebar() {
   const isAdminQuery = useIsEdgeAdmin({ noEnvScope: true });
   const isTeamLeader = useIsCurrentUserTeamLeader();
   const { isOpen } = useSidebarState();
+  useMobileDrawer(isOpen);
 
   const settingsQuery = usePublicSettings();
 
@@ -42,50 +44,58 @@ function InnerSidebar() {
   const { LogoURL } = settingsQuery.data;
 
   return (
-    <div className={clsx(styles.root, 'sidebar flex flex-col')}>
-      <UpgradeBEBannerWrapper />
-      <nav
-        className={clsx(
-          styles.nav,
-          'flex flex-1 flex-col overflow-y-auto py-5 pl-5',
-          { 'pr-5': isOpen }
-        )}
-        aria-label="Main"
-      >
-        <Header logo={LogoURL} />
-        {/* negative margin + padding -> scrollbar won't hide the content */}
-        <div
+    <>
+      <div
+        className={styles.backdrop}
+        data-cy="sidebar-backdrop"
+        aria-hidden="true"
+        onClick={() => closeDrawer()}
+      />
+      <div className={clsx(styles.root, 'sidebar flex flex-col')}>
+        <UpgradeBEBannerWrapper />
+        <nav
           className={clsx(
-            styles.navListContainer,
-            'mt-6 flex-1 overflow-y-auto [color-scheme:light] be:[color-scheme:dark] th-highcontrast:[color-scheme:dark] th-dark:[color-scheme:dark]',
-            { '-mr-5 pr-5': isOpen }
+            styles.nav,
+            'flex flex-1 flex-col overflow-y-auto py-5 pl-5',
+            { 'pr-5': isOpen }
           )}
+          aria-label="Main"
         >
-          <ul className={clsx('space-y-5', { 'w-[32px]': !isOpen })}>
-            <SidebarItem
-              to="portainer.home"
-              icon={Home}
-              label="Home"
-              data-cy="portainerSidebar-home"
-            />
+          <Header logo={LogoURL} />
+          {/* negative margin + padding -> scrollbar won't hide the content */}
+          <div
+            className={clsx(
+              styles.navListContainer,
+              'mt-6 flex-1 overflow-y-auto [color-scheme:light] be:[color-scheme:dark] th-highcontrast:[color-scheme:dark] th-dark:[color-scheme:dark]',
+              { '-mr-5 pr-5': isOpen }
+            )}
+          >
+            <ul className={clsx('space-y-5', { 'w-[32px]': !isOpen })}>
+              <SidebarItem
+                to="portainer.home"
+                icon={Home}
+                label="Home"
+                data-cy="portainerSidebar-home"
+              />
 
-            <EnvironmentSidebar />
+              <EnvironmentSidebar />
 
-            <AppDeliverySidebar />
+              <AppDeliverySidebar />
 
-            {isAdmin && <EdgeComputeSidebar />}
+              {isAdmin && <EdgeComputeSidebar />}
 
-            <SettingsSidebar
-              isPureAdmin={isPureAdmin}
-              isAdmin={isAdmin}
-              isTeamLeader={isTeamLeader}
-            />
-          </ul>
-        </div>
-        <div className="mt-auto pt-8">
-          <Footer />
-        </div>
-      </nav>
-    </div>
+              <SettingsSidebar
+                isPureAdmin={isPureAdmin}
+                isAdmin={isAdmin}
+                isTeamLeader={isTeamLeader}
+              />
+            </ul>
+          </div>
+          <div className="mt-auto pt-8">
+            <Footer />
+          </div>
+        </nav>
+      </div>
+    </>
   );
 }
