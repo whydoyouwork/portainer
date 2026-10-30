@@ -13,7 +13,7 @@ interface Props {
 
 export function ContainerStatus({ stats }: Props) {
   return (
-    <div className="pull-right">
+    <div className="pull-right max-md:float-none">
       <div>
         <div className="vertical-center space-right pr-5">
           <Icon icon={Power} mode="success" size="sm" />

@@ -5,5 +5,7 @@ interface Props {
 }
 
 export function HeaderStats({ children }: Props) {
-  return <div className="flex items-stretch gap-3">{children}</div>;
+  return (
+    <div className="flex items-stretch gap-3 max-md:flex-wrap">{children}</div>
+  );
 }

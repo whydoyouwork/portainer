@@ -43,7 +43,7 @@ export function ResourceDetailHeader({
           </Alert>
         )}
         {!errorMessage && (
-          <div className="flex items-center gap-4">
+          <div className="flex items-center gap-4 max-md:flex-wrap">
             <HeaderIcon
               icon={icon}
               iconBackgroundClassName={iconBackgroundClassName}
@@ -99,7 +99,7 @@ function HeaderInfo({
   description,
 }: HeaderInfoProps) {
   return (
-    <div className="flex flex-1 flex-col">
+    <div className="flex min-w-0 flex-1 flex-col">
       {subtitleLabel && (
         <span className={clsx('text-xs font-medium', subtitleClassName)}>
           {subtitleLabel}

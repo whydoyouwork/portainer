@@ -20,7 +20,7 @@ export function StatsItem({
     <div
       className={clsx(
         'flex flex-col items-center',
-        'h-full gap-1 rounded-lg p-2',
+        'h-full gap-1 rounded-lg p-2 max-[991px]:h-auto max-[991px]:self-stretch',
         'bg-gray-2 th-highcontrast:bg-transparent th-dark:bg-gray-iron-10',
         'border border-solid border-gray-4 th-dark:border-gray-8'
       )}

@@ -59,7 +59,7 @@ export function DashboardItem({
         Loading total
         <Loader2 className="ml-1 h-4 animate-spin-slow" />
       </div>
-      <div className="flex items-center" aria-label={type}>
+      <div className="flex items-center max-md:flex-wrap" aria-label={type}>
         <div
           className={clsx(
             'icon-badge mr-4 !p-2 text-2xl',
@@ -96,7 +96,9 @@ export function DashboardItem({
           </div>
         </div>
 
-        <div className="ml-auto">{children}</div>
+        <div className="ml-auto max-md:ml-0 max-md:mt-2 max-md:w-full">
+          {children}
+        </div>
       </div>
     </div>
   );
