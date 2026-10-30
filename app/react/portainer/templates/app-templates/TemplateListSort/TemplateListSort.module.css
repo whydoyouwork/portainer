@@ -9,6 +9,18 @@
   display: inline-block;
 }
 
+/* Phones: the filters stack, so the select takes the line and the direction button sits beside it. */
+@media only screen and (max-width: 767px) {
+  .sort-by-container {
+    justify-content: stretch;
+  }
+
+  .sort-by-element:first-child {
+    flex: 1 1 auto;
+    min-width: 0;
+  }
+}
+
 .sort-button {
   --text-color: var(--grey-6);
   background-color: var(--bg-sortbutton-color);

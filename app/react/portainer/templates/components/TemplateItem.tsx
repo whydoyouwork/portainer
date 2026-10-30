@@ -40,6 +40,7 @@ export function TemplateItem({
   return (
     <div className="relative">
       <BlocklistItem
+        className={renderActions ? 'max-md:!pb-10' : undefined}
         isSelected={isSelected}
         onClick={() => onSelect()}
         as={linkParams ? Link : undefined}
@@ -94,7 +95,7 @@ export function TemplateItem({
           </div>
         </div>
       </BlocklistItem>
-      <span className="absolute inset-y-0 right-0 justify-end">
+      <span className="absolute inset-y-0 right-0 justify-end max-md:flex max-md:items-end">
         {renderActions}
       </span>
     </div>

@@ -32,7 +32,7 @@ export function AppTemplatesListItem({
       isSelected={isSelected}
       renderActions={
         duplicateCustomTemplateType && (
-          <div className="mr-5 mt-3">
+          <div className="mr-5 mt-3 max-md:mb-2 max-md:mt-0">
             <Button
               as={Link}
               data-cy="app-templates-duplicate-button"

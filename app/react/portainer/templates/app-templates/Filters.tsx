@@ -42,9 +42,9 @@ export function Filters({
   );
 
   return (
-    <div className="flex w-full gap-4">
+    <div className="flex w-full gap-4 max-md:flex-col max-md:gap-2">
       {categories.length > 0 && (
-        <div className="w-1/4">
+        <div className="w-1/4 max-md:w-full">
           <PortainerSelect
             options={categories}
             onChange={(category) => {
@@ -61,7 +61,7 @@ export function Filters({
         </div>
       )}
       {typeFiltersEnabled.length > 1 && (
-        <div className="w-1/4">
+        <div className="w-1/4 max-md:w-full">
           <PortainerSelect<TemplateType>
             isMulti
             options={typeFiltersEnabled}
@@ -78,7 +78,7 @@ export function Filters({
           />
         </div>
       )}
-      <div className="ml-auto w-1/4">
+      <div className="ml-auto w-1/4 max-md:ml-0 max-md:w-full">
         <TemplateListSort
           onChange={(value) => {
             listState.setSortBy(value?.id, value?.desc ?? false);
