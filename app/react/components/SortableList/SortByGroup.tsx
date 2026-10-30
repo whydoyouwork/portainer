@@ -33,7 +33,7 @@ export function SortByGroup<TSortKey extends string>({
   dataCy,
 }: SortByGroupProps<TSortKey>) {
   return (
-    <div className="flex items-center gap-3">
+    <div className="flex items-center gap-3 max-md:flex-wrap">
       <span
         className="text-xs font-semibold tracking-wider text-gray-11 th-highcontrast:text-white th-dark:text-white"
         data-cy="sort-by-label"
@@ -42,7 +42,7 @@ export function SortByGroup<TSortKey extends string>({
       </span>
       <div
         className={clsx(
-          'flex',
+          'flex max-md:flex-wrap',
           'bg-gray-4 th-highcontrast:bg-black th-dark:bg-gray-iron-11',
           'gap-1 rounded-md p-1 th-highcontrast:border th-highcontrast:border-solid th-highcontrast:border-white'
         )}

@@ -78,7 +78,7 @@ export function EnvironmentCard({
               {showSnapshotButton && <SnapshotBadge />}
             </div>
             {/* Middle row - status info */}
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2 max-md:flex-wrap">
               {isEdge ? (
                 <EdgeIndicator environment={environment} showLastCheckInDate />
               ) : (
@@ -98,7 +98,7 @@ export function EnvironmentCard({
               <span className="small text-muted vertical-center">•</span>
               <EnvironmentURL environment={environment} />
             </div>
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2 max-md:flex-wrap">
               <EnvironmentGroupName groupName={groupName} />
               <EnvironmentTypeTag environment={environment} />
               <AgentDetails environment={environment} />

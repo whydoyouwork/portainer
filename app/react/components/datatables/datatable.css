@@ -363,9 +363,12 @@
   margin: 0;
 }
 
-/* Phones: let the table toolbar wrap onto several lines instead of clipping its buttons. */
-@media only screen and (max-width: 767px) {
-  .datatable .toolBar > div {
+/* Phones, landscape phones and tablets (where the sidebar is the collapsed rail): let the table
+   toolbar and the button rows inside it wrap onto several lines instead of clipping their buttons.
+   Desktop widths (992px and up) are unchanged. */
+@media only screen and (max-width: 991px) {
+  .datatable .toolBar > div,
+  .datatable .toolBar .flex {
     flex-wrap: wrap;
   }
 
@@ -373,7 +376,10 @@
     display: flex;
     flex-wrap: wrap;
   }
+}
 
+/* Phones: let the search box use the full line it wraps onto. */
+@media only screen and (max-width: 767px) {
   .datatable .toolBar .searchBar {
     max-width: none;
   }
