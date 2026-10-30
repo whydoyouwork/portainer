@@ -1,4 +1,5 @@
 import { act, renderHook } from '@testing-library/react-hooks';
+import { waitFor } from '@testing-library/react';
 import { useRef } from 'react';
 
 import { sidebarStore } from './sidebarStore';
@@ -148,6 +149,65 @@ describe('useMobileDrawer', () => {
     });
 
     expect(sidebarStore.getState().isOpen).toBe(false);
+  });
+
+  // A link to another page replaces the page it was opened from, header and toggle included. Mutation: the drawer
+  // hands focus to the toggle once, as it did before, and that toggle is gone with the old page: focus is left on <body>.
+  it('puts focus on the toggle of the new page when a link to another page replaces the header', async () => {
+    mockPhone(true);
+    const root = buildPage();
+    const { rerender } = renderDrawer(true, root);
+    act(() => sidebarStore.setState({ isOpen: true }));
+    const link = root.querySelector('a') as HTMLAnchorElement;
+    link.focus();
+    const oldToggle = document.querySelector(
+      'button[aria-label="Toggle Sidebar"]'
+    ) as HTMLElement;
+
+    act(() => {
+      link.click();
+    });
+    // the sidebar re-renders as closed, and hands focus back to the toggle it can see
+    rerender({ open: false });
+    expect(document.activeElement).toBe(oldToggle);
+
+    // the new page is drawn: its header, with a new toggle, replaces the old one, and focus falls back to <body>
+    oldToggle.remove();
+    expect(document.activeElement).toBe(document.body);
+    const newToggle = document.createElement('button');
+    newToggle.setAttribute('aria-label', 'Toggle Sidebar');
+    document.getElementById('content-wrapper')?.append(newToggle);
+
+    await waitFor(() => expect(document.activeElement).toBe(newToggle));
+  });
+
+  it('leaves focus alone when the new page has already moved it', async () => {
+    mockPhone(true);
+    const root = buildPage();
+    const { rerender } = renderDrawer(true, root);
+    act(() => sidebarStore.setState({ isOpen: true }));
+    const link = root.querySelector('a') as HTMLAnchorElement;
+    link.focus();
+    const oldToggle = document.querySelector(
+      'button[aria-label="Toggle Sidebar"]'
+    ) as HTMLElement;
+
+    act(() => {
+      link.click();
+    });
+    rerender({ open: false });
+    oldToggle.remove();
+    const field = document.createElement('input');
+    const newToggle = document.createElement('button');
+    newToggle.setAttribute('aria-label', 'Toggle Sidebar');
+    document.getElementById('content-wrapper')?.append(field, newToggle);
+    field.focus();
+
+    await new Promise((resolve) => {
+      setTimeout(resolve, 100);
+    });
+
+    expect(document.activeElement).toBe(field);
   });
 
   it('stays open when something that is not a link is clicked', () => {

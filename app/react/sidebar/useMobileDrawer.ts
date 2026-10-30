@@ -18,11 +18,46 @@ function isDrawerLayout() {
   );
 }
 
+let restoreFrame = 0;
+
+function isFocusLost() {
+  return !document.activeElement || document.activeElement === document.body;
+}
+
+// Puts focus on the toggle, and keeps an eye on it for a moment. A link in the drawer to another page replaces the
+// page it was opened from, header and toggle included, so the toggle that has focus is removed and focus falls
+// back to <body>: when that happens, put it on the toggle of the page that was opened.
+function focusToggle() {
+  window.cancelAnimationFrame(restoreFrame);
+
+  const toggle = document.querySelector<HTMLElement>(toggleSelector);
+  toggle?.focus();
+
+  let frames = 0;
+  function watch() {
+    frames += 1;
+    if (!toggle || !toggle.isConnected) {
+      const next = document.querySelector<HTMLElement>(toggleSelector);
+      if (next) {
+        if (isFocusLost()) {
+          next.focus();
+        }
+        return;
+      }
+    }
+
+    if (frames < 300) {
+      restoreFrame = window.requestAnimationFrame(watch);
+    }
+  }
+  restoreFrame = window.requestAnimationFrame(watch);
+}
+
 export function closeDrawer({ returnFocus = false } = {}) {
   sidebarStore.getState().setOpen(false);
 
   if (returnFocus) {
-    document.querySelector<HTMLElement>(toggleSelector)?.focus();
+    focusToggle();
   }
 }
 
@@ -94,6 +129,9 @@ export function useMobileDrawer(
     if (!isOpen || !isDrawer || !root) {
       return undefined;
     }
+
+    // a drawer that is open again is no longer waiting to hand focus back
+    window.cancelAnimationFrame(restoreFrame);
 
     const page = document.getElementById('content-wrapper');
     const previousOverflow = document.body.style.overflow;
@@ -168,7 +206,7 @@ export function useMobileDrawer(
         root.contains(document.activeElement) ||
         document.activeElement === document.body
       ) {
-        document.querySelector<HTMLElement>(toggleSelector)?.focus();
+        focusToggle();
       }
     };
   }, [isOpen, isDrawer, rootRef]);
