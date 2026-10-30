@@ -15,6 +15,23 @@
   :where(.flex:not(.searchBar):has(> .btn-group, > .btn, > button)) {
     flex-wrap: wrap;
   }
+
+  /* Every "Business Feature" badge (the locked panel's and the one beside a locked switch) uses the next darker
+     grey of the palette for its text and outline: the vendor's gray-6 is 2.5:1 on a light background, under the
+     4.5:1 that text needs. The dark and high contrast themes sit on a dark background, where the vendor's colours
+     are already clear, and a hovered badge keeps its blue. */
+  html:not([theme='dark']):not([theme='highcontrast']) .be-indicator:not(:hover) {
+    @apply border-gray-7 text-gray-7;
+  }
+
+  /* The same badge under a locked option of a box selector (a link to the upgrade page, in a box of its own). */
+  html:not([theme='dark']):not([theme='highcontrast']) div:has(> a[href*='business-upsell'].text-gray-6) {
+    @apply border-gray-7 text-gray-7;
+  }
+
+  html:not([theme='dark']):not([theme='highcontrast']) a[href*='business-upsell'].text-gray-6:not(:hover) {
+    @apply text-gray-7;
+  }
 }
 
 /* Phones (below 768px) */
@@ -60,14 +77,6 @@
     justify-content: flex-end;
     width: auto;
     padding: 10px 10px 0;
-  }
-
-  /* Every "Business Feature" badge (the locked panel's and the one beside a locked switch) uses the next darker
-     grey of the palette for its text and outline: the vendor's gray-6 is 2.5:1 on a light background, under the
-     4.5:1 that text needs. The dark and high contrast themes sit on a dark background, where the vendor's colours
-     are already clear, and a hovered badge keeps its blue. */
-  html:not([theme='dark']):not([theme='highcontrast']) .be-indicator:not(:hover) {
-    @apply border-gray-7 text-gray-7;
   }
 
   /* In a table cell the badge may wrap onto two lines, so it does not set the width of the label column. */
