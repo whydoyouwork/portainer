@@ -184,9 +184,10 @@
 
 /* Narrow phones (below 360px) */
 @media only screen and (max-width: 359px) {
-  /* The label column keeps 6rem: with the restart policy's table in the next column, 7.5rem is wider than the card. */
+  /* The label column keeps 7.25rem, the width "configuration" and "Business Feature" need to stay whole: 7.5rem is
+     wider than the card when the restart policy's table sits in the next column, and 6rem cuts those words. */
   .widget-body table.table:not(.table-responsive table, td .table):not(:has(> thead)) > tbody > tr > td:first-child {
-    min-width: 6rem;
+    min-width: 7.25rem;
   }
 }
 
