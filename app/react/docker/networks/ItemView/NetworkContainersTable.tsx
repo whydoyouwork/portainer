@@ -1,9 +1,11 @@
 import { Server, Trash2 } from 'lucide-react';
+import clsx from 'clsx';
 
 import { Authorized } from '@/react/hooks/useUser';
 import { EnvironmentId } from '@/react/portainer/environments/types';
 import { Icon } from '@/react/components/Icon';
 import { notifySuccess } from '@/portainer/services/notifications';
+import { useIsDrawerLayout } from '@/react/sidebar/useMobileDrawer';
 
 import { TableContainer, TableTitle } from '@@/datatables';
 import { DetailsTable } from '@@/DetailsTable';
@@ -39,6 +41,8 @@ export function NetworkContainersTable({
     networkId,
   });
 
+  const isPhone = useIsDrawerLayout();
+
   if (networkContainers.length === 0) {
     return null;
   }
@@ -46,7 +50,17 @@ export function NetworkContainersTable({
   return (
     <TableContainer>
       <TableTitle label="Containers in network" icon={Server} />
-      <div className="max-md:overflow-x-auto">
+      <div
+        className={clsx(
+          'max-md:overflow-x-auto',
+          isPhone &&
+            'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-blue-8 th-highcontrast:focus-visible:ring-blue-5 th-dark:focus-visible:ring-blue-5'
+        )}
+        // on a phone the table scrolls sideways inside this region, so the keyboard must be able to reach it
+        role={isPhone ? 'region' : undefined}
+        aria-label={isPhone ? 'Containers in network' : undefined}
+        tabIndex={isPhone ? 0 : undefined}
+      >
         <DetailsTable
           headers={tableHeaders}
           dataCy="networkDetails-networkContainers"

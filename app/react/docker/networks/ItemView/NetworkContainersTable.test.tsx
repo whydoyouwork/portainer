@@ -65,3 +65,63 @@ test('Network container values should be visible and the link should be valid', 
     findByText('Leave network', { exact: false })
   ).resolves.toBeVisible();
 });
+
+describe('scrolling region', () => {
+  function mockWidth(isPhone: boolean) {
+    window.matchMedia = vi.fn().mockImplementation((query: string) => ({
+      matches: isPhone,
+      media: query,
+      addEventListener: vi.fn(),
+      removeEventListener: vi.fn(),
+    }));
+  }
+
+  function renderTable() {
+    server.use(
+      http.get('/api/endpoints/1', () =>
+        HttpResponse.json(createMockEnvironment())
+      )
+    );
+    const user = new UserViewModel({ Username: 'test', Role: 1 });
+    const Wrapped = withTestQueryProvider(
+      withUserProvider(withTestRouter(NetworkContainersTable), user)
+    );
+
+    return render(
+      <Wrapped
+        networkContainers={networkContainers}
+        nodeName=""
+        environmentId={1}
+        networkId="pc8xc9s6ot043vl1q5iz4zhfs"
+      />
+    );
+  }
+
+  afterEach(() => {
+    // @ts-expect-error jsdom has no matchMedia unless a test adds one
+    delete window.matchMedia;
+  });
+
+  it('is a named region the keyboard can reach on a phone, where the table scrolls sideways', async () => {
+    mockWidth(true);
+    const { findByRole } = renderTable();
+
+    const region = await findByRole('region', {
+      name: 'Containers in network',
+    });
+
+    expect(region).toHaveAttribute('tabindex', '0');
+  });
+
+  it('adds no tab stop on larger screens, where the table does not scroll in its own region', async () => {
+    mockWidth(false);
+    const { findByText, queryByRole } = renderTable();
+
+    await findByText(networkContainers[0].Name);
+
+    expect(
+      queryByRole('region', { name: 'Containers in network' })
+    ).not.toBeInTheDocument();
+    expect(document.querySelector('[tabindex]')).toBeNull();
+  });
+});
