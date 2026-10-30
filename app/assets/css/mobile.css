@@ -1,0 +1,119 @@
+/*
+ * Small screens: layout fixes for the Bootstrap 3 patterns that the AngularJS views share.
+ *
+ * Everything here sits inside a max-width media query, so widths of 992px and up are unchanged.
+ * The rules rearrange what is already on the page (wrap, stack, break long values); they do not
+ * change colours, type or spacing steps. Tailwind classes on React components carry the fixes
+ * that belong to one component; this file carries the ones many views share.
+ */
+
+/* Tablets and phones (below 992px) */
+@media only screen and (max-width: 991px) {
+  /* Button groups and button rows wrap onto another line instead of running off the page. */
+  .btn-group,
+  .btn-toolbar {
+    display: flex;
+    flex-wrap: wrap;
+  }
+
+  /* `where` keeps this at zero specificity, so a component that sets flex-nowrap still wins. */
+  :where(.flex:not(.searchBar):has(> .btn-group, > .btn, > button)) {
+    flex-wrap: wrap;
+  }
+}
+
+/* Phones (below 768px) */
+@media only screen and (max-width: 767px) {
+  /* A long button label wraps rather than widening the button past the screen. */
+  .btn {
+    white-space: normal;
+  }
+
+  /* ...except in an input group, where the button sits beside its field on one line. */
+  .input-group-btn .btn {
+    white-space: nowrap;
+  }
+
+  /* Long unbroken values (hashes, URLs, image references) break instead of widening their card. */
+  .widget a,
+  .widget p,
+  .widget label,
+  .widget-body td,
+  .widget-body th {
+    overflow-wrap: anywhere;
+  }
+
+  /* The label column of the key/value tables opts out of breaking; on a phone it must give way. */
+  .widget-body td.\!break-normal {
+    overflow-wrap: anywhere !important;
+  }
+
+  /* Icon + text lines may shrink to the width of their card; a paragraph of them takes the full line. */
+  .vertical-center,
+  .vertical-center > span {
+    min-width: 0;
+  }
+
+  p.vertical-center {
+    display: flex;
+  }
+
+  /* Template and blocklist cards: the text column shrinks and its lines wrap. */
+  .blocklist-item > .col-sm-12 {
+    min-width: 0;
+    flex: 1 1 0;
+  }
+
+  .blocklist-item-title {
+    overflow-wrap: anywhere;
+  }
+
+  .blocklist-item .blocklist-item-line {
+    flex-wrap: wrap;
+    gap: 0 0.5rem;
+  }
+
+  /* Select placeholders and values show in full instead of being cut with an ellipsis. */
+  .portainer-selector__placeholder,
+  .portainer-selector__single-value {
+    white-space: normal !important;
+    overflow: visible !important;
+    text-overflow: clip !important;
+  }
+
+  /* The "Business Feature" badge of a locked panel sits above the panel's content instead of
+     covering its title. */
+  .be-indicator-container > .limited-be-link {
+    position: static;
+    display: flex;
+    justify-content: flex-end;
+    width: auto;
+    padding: 10px 10px 0;
+  }
+}
+
+/* Touch screens below 992px: controls reach the 44px touch size, and fields use 16px text so that
+   iOS Safari does not zoom the page when one is focused. Mouse users at the same width keep the
+   vendor's denser controls. Controls inside table rows are left alone: their row opens the same
+   actions. */
+@media only screen and (max-width: 991px) and (pointer: coarse) {
+  .btn:not(table .btn) {
+    min-height: 44px;
+  }
+
+  .btn:not(table .btn):not(.btn-link):not(.btn-none) {
+    min-width: 44px;
+  }
+
+  .form-control:not(table .form-control),
+  select:not(table select),
+  textarea:not(table textarea),
+  input[type='text']:not(table input),
+  input[type='password']:not(table input),
+  input[type='number']:not(table input),
+  input[type='email']:not(table input),
+  input[type='url']:not(table input) {
+    min-height: 44px;
+    font-size: 16px;
+  }
+}

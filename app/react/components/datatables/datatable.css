@@ -368,7 +368,7 @@
    Desktop widths (992px and up) are unchanged. */
 @media only screen and (max-width: 991px) {
   .datatable .toolBar > div,
-  .datatable .toolBar .flex {
+  .datatable .toolBar .flex:not(.searchBar) {
     flex-wrap: wrap;
   }
 
