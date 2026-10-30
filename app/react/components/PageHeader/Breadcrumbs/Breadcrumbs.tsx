@@ -1,5 +1,4 @@
 import { Home, ChevronRight } from 'lucide-react';
-import clsx from 'clsx';
 
 import { Link } from '@@/Link';
 
@@ -33,10 +32,7 @@ export function Breadcrumbs({ breadcrumbs }: Props) {
       {breadcrumbsArray.map((crumb, index) => (
         <span
           key={index}
-          className={clsx(
-            'flex items-center gap-2 max-[991px]:min-w-0',
-            index === 0 ? 'max-md:flex-1' : 'max-md:flex-[1_1_5rem]'
-          )}
+          className="flex items-center gap-2 max-[991px]:min-w-0"
         >
           {index === 0 && homeLink}
           <ChevronRight className="h-3 w-3 shrink-0" aria-hidden="true" />
