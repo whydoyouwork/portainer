@@ -34,6 +34,14 @@
     outline-offset: 1px;
   }
 
+  /* ---- Link-style buttons ---- */
+
+  /* The vendor's link blue (blue-8) is 4.0:1 on white, under the 4.5:1 that text needs: in the light theme the
+     buttons use the next darker blue of the palette, and their hover the one after. The dark and high contrast
+     themes keep the vendor's colours. */
+  html:not([theme='dark']):not([theme='highcontrast']) .btn.btn-link:not(:disabled, .disabled) {
+    @apply text-blue-9 hover:text-blue-10;
+  }
 }
 
 /* Tablets (768px to 991px) */
