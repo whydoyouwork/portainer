@@ -35,6 +35,7 @@ export function StickyFooter({
         styles.actionBar,
         'fixed bottom-0 right-0 z-40 h-16',
         'flex items-center px-6',
+        'max-md:min-h-16 max-md:h-auto max-md:flex-wrap max-md:gap-2 max-md:px-4 max-md:py-2 max-md:pb-[max(0.5rem,env(safe-area-inset-bottom))]',
         'border-t border-[var(--border-widget-color)] bg-[var(--bg-widget-color)]',
         'shadow-[0_-2px_5px_rgba(0,0,0,0.1)]',
         className
@@ -51,7 +52,7 @@ export function StickyFooter({
  * `StickyFooter` inside a page or form.
  */
 function Container({ children }: PropsWithChildren<unknown>) {
-  return <div className="pb-20">{children}</div>;
+  return <div className="pb-20 max-md:pb-28">{children}</div>;
 }
 
 StickyFooter.Container = Container;

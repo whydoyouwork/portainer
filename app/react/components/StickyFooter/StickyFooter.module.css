@@ -11,3 +11,11 @@
 :global(#page-wrapper.open) .actionBar {
   left: var(--sidebar-width, 300px);
 }
+
+/* Phones: the sidebar is an off-canvas drawer, so there is no rail to clear. */
+@media only screen and (max-width: 767px) {
+  .actionBar,
+  :global(#page-wrapper.open) .actionBar {
+    left: 0;
+  }
+}
