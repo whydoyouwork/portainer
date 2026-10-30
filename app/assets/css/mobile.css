@@ -111,6 +111,11 @@
     align-items: center;
     min-height: 24px;
   }
+
+  /* ...and shows the browser's own focus ring, as the vendor's other buttons do: `.btn-none` removes it. */
+  .sidebar [data-cy='portainerSidebar-versionNumber']:focus-visible {
+    outline: revert;
+  }
 }
 
 /* Touch screens below 992px: controls reach the 44px touch size, and fields use 16px text so that
