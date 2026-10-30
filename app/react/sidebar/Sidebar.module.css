@@ -78,7 +78,8 @@
   .root,
   :global(#page-wrapper.open) .root {
     width: min(var(--sidebar-width), 85vw);
-    z-index: 1035;
+    /* above page content and the sticky footer (40), below sheets (50) and modals (60) */
+    z-index: 45;
   }
 
   .root {
@@ -95,7 +96,7 @@
     display: block;
     position: fixed;
     inset: 0;
-    z-index: 1034;
+    z-index: 44;
     background-color: rgb(0 0 0 / 40%);
   }
 }
