@@ -116,6 +116,15 @@
   .sidebar [data-cy='portainerSidebar-versionNumber']:focus-visible {
     outline: revert;
   }
+
+  /* A button in a table that scrolls sideways keeps its label on one line: the table has the room, and breaking
+     "Leave Network" into pieces is not a layout. Tables that do not scroll keep wrapping the label. */
+  .table-responsive td .btn,
+  .datatable td .btn,
+  [role='region'] td .btn {
+    white-space: nowrap;
+    overflow-wrap: normal;
+  }
 }
 
 /* Touch screens below 992px: controls reach the 44px touch size, and fields use 16px text so that
