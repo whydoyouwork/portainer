@@ -244,7 +244,7 @@ describe(`sidebar drawer below ${DRAWER_BREAKPOINT}px`, () => {
           // Opens the container removal confirmation. It is never confirmed.
           await page.locator('.datatable tbody tr').first().locator('input[type="checkbox"]').check({ force: true });
           await page.click('[data-cy="remove-docker-container-button"]');
-          await page.waitForSelector('[role="dialog"]');
+          await page.waitForSelector('[data-reach-dialog-content]');
           await page.evaluate((selector) => document.querySelector(selector).click(), TOGGLE);
 
           const state = await eventually(async () => {
@@ -267,12 +267,16 @@ describe(`sidebar drawer below ${DRAWER_BREAKPOINT}px`, () => {
           assert.ok(state.shown);
 
           const hits = await page.evaluate(() => {
-            const dialog = document.querySelector('[role="dialog"]');
+            const dialog = document.querySelector('[data-reach-dialog-content]');
             const describeHit = (hit) => (hit ? `${hit.tagName.toLowerCase()}${hit.id ? `#${hit.id}` : ''}${hit.dataset?.cy ? `[data-cy=${hit.dataset.cy}]` : ''}` : 'nothing');
             const buttons = [...dialog.querySelectorAll('button')].map((button) => {
               const rect = button.getBoundingClientRect();
               const hit = document.elementFromPoint(rect.left + rect.width / 2, rect.top + rect.height / 2);
-              return { label: button.textContent.trim() || button.getAttribute('aria-label') || 'button', onDialog: !!hit?.closest('[role="dialog"]'), topmost: describeHit(hit) };
+              return {
+                label: button.textContent.trim() || button.getAttribute('aria-label') || 'button',
+                onDialog: !!hit?.closest('[data-reach-dialog-content]'),
+                topmost: describeHit(hit),
+              };
             });
             // A point beside the dialog must land on the dialog's own overlay, not on the drawer or its backdrop.
             const beside = document.elementFromPoint(4, window.innerHeight / 2);
