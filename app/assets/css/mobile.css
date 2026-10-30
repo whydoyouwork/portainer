@@ -48,6 +48,12 @@
     overflow-wrap: anywhere !important;
   }
 
+  /* The label column of a key/value table keeps room for its longest word, so a long value beside it
+     breaks instead of squeezing the label letter by letter. */
+  .widget-body table.table:not(.table-responsive table) td:first-child {
+    min-width: 6rem;
+  }
+
   /* Icon + text lines may shrink to the width of their card; a paragraph of them takes the full line. */
   .vertical-center,
   .vertical-center > span {
