@@ -88,30 +88,39 @@
   }
 }
 
-/* Touch screens below 992px: a taller button in a section title must not float down over the text that follows it. */
+/* Touch screens below 992px: the header's icon buttons, and the title row of a form section. The sizes of the
+   Bootstrap controls are in bootstrap-mobile.css. */
 @media only screen and (max-width: 991px) and (pointer: coarse) {
+  [data-cy='notificationsMenu-button'],
+  [data-cy='context-help-button'],
+  [data-cy='userMenu-button'] {
+    min-height: 36px;
+    min-width: 36px;
+  }
+
+  /* A taller button in a section title must not float down over the text that follows it. */
   .form-section-title {
     display: flow-root;
   }
 }
 
-/* The phone drawer: its rows reach the 44px touch size. */
+/* The phone drawer: its rows are 36px, its buttons 32px or more. */
 @media only screen and (max-width: 767px) and (pointer: coarse) {
   .sidebar .h-8 {
-    height: 44px;
+    height: 36px;
   }
 
   .sidebar .min-h-8 {
-    min-height: 44px;
+    min-height: 36px;
   }
 
   .sidebar [data-cy='portainerSidebar-versionNumber'] {
-    min-height: 44px;
+    min-height: 32px;
   }
 
   /* The button that clears the current environment. */
   .sidebar button[title='Clear environment'] {
-    width: 44px;
-    height: 44px;
+    width: 32px;
+    height: 32px;
   }
 }

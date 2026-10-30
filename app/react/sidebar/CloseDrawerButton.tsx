@@ -20,7 +20,7 @@ export function CloseDrawerButton() {
       data-cy="sidebar-close-button"
       className={clsx(
         styles.closeButton,
-        '!h-[44px] !w-[44px] shrink-0 !rounded !text-white hover:bg-graphite-500 focus-visible:!ring-2 focus-visible:!ring-blue-5'
+        '!h-[36px] !w-[36px] shrink-0 !rounded !text-white hover:bg-graphite-500 focus-visible:!ring-2 focus-visible:!ring-blue-5'
       )}
       onClick={() => closeDrawer({ returnFocus: true })}
     />

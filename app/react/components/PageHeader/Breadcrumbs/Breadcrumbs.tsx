@@ -20,7 +20,7 @@ export function Breadcrumbs({ breadcrumbs }: Props) {
   const homeLink = (
     <Link
       to="portainer.home"
-      className="p-1.5 text-gray-8 hover:text-blue-11 th-highcontrast:text-white th-dark:text-gray-5 th-dark:hover:text-blue-9 max-[991px]:-m-[8px] max-[991px]:flex max-[991px]:min-h-[44px] max-[991px]:min-w-[44px] max-[991px]:items-center max-[991px]:justify-center max-[991px]:p-0"
+      className="p-1.5 text-gray-8 hover:text-blue-11 th-highcontrast:text-white th-dark:text-gray-5 th-dark:hover:text-blue-9 max-[991px]:-m-[4px] max-[991px]:flex max-[991px]:min-h-[36px] max-[991px]:min-w-[36px] max-[991px]:items-center max-[991px]:justify-center max-[991px]:p-0"
       data-cy="breadcrumb-home"
       aria-label="Home"
     >

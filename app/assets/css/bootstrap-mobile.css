@@ -164,33 +164,43 @@
   }
 }
 
-/* Touch screens below 992px: controls reach the 44px touch size, and fields use 16px text so that
-   iOS Safari does not zoom the page when one is focused. Mouse users at the same width keep the
-   vendor's denser controls. Controls inside table rows are left alone: their row opens the same
-   actions. */
+/* Touch screens below 992px: controls use a compact size (the height of Bootstrap's small button), and fields use
+   16px text so that iOS Safari does not zoom the page when one is focused. Every target is 24px or more, the
+   minimum of WCAG 2.2. Mouse users at the same width keep the vendor's controls. Controls inside table rows are
+   left alone: their row opens the same actions. */
 @media only screen and (max-width: 991px) and (pointer: coarse) {
-  .btn:not(table .btn) {
-    min-height: 44px;
+  /* `where` keeps the padding at zero specificity, so a utility class on a button (p-0, !p-0) still wins. */
+  .btn:where(:not(table .btn, .btn-xs, .btn-link, .btn-none)) {
+    padding: 5px 10px;
   }
 
-  .btn:not(table .btn):not(.btn-link) {
-    min-width: 44px;
+  .btn:not(table .btn):not(.btn-xs) {
+    min-height: 32px;
+    font-size: 13px;
   }
 
-  /* Buttons that are not Bootstrap buttons: sort bars, pagination, the table settings gear, stepper
-     steps. The date range picker's two icon buttons keep their 24px: they share one narrow line with
-     the fields, and 24px is the WCAG 2.2 minimum. */
+  .btn:not(table .btn):not(.btn-xs):not(.btn-link) {
+    min-width: 32px;
+  }
+
+  /* The extra small button of a text row stays small, and reaches the 24px of WCAG 2.2. */
+  .btn-xs:not(table .btn) {
+    min-height: 24px;
+    min-width: 24px;
+  }
+
+  /* Buttons that are not Bootstrap buttons: sort bars, pagination, the table settings gear, stepper steps. */
   button:not(.btn):not(table button):not(.sidebar button):not(.react-daterange-picker__button) {
-    min-height: 44px;
-    min-width: 44px;
+    min-height: 32px;
+    min-width: 32px;
   }
 
-  /* Tabs and pills are navigation: their rows reach the touch size too. */
+  /* Tabs and pills are navigation: their rows are a little taller than a button. */
   .nav-tabs > li > a,
   .nav-pills > li > a {
     display: flex;
     align-items: center;
-    min-height: 44px;
+    min-height: 36px;
   }
 
   .form-control:not(table .form-control),
@@ -201,7 +211,7 @@
   input[type='number']:not(table input),
   input[type='email']:not(table input),
   input[type='url']:not(table input) {
-    min-height: 44px;
+    min-height: 36px;
     font-size: 16px;
   }
 }

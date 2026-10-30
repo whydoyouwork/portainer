@@ -25,7 +25,7 @@ export function UserMenu() {
       <MenuButton
         className={clsx(
           'ml-auto flex items-center gap-1 self-start',
-          'max-[991px]:-my-[5px] max-[991px]:!-ml-[5px] max-[991px]:!mr-[3px] max-[991px]:p-[5px]',
+          'max-[991px]:-my-[1px] max-[991px]:!-ml-[1px] max-[991px]:!mr-[7px] max-[991px]:p-[1px]',
           styles.menuButton
         )}
         data-cy="userMenu-button"
