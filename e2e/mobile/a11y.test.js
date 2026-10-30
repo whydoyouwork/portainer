@@ -9,9 +9,11 @@ const { after, before, describe, test } = require('node:test');
 const assert = require('node:assert/strict');
 
 const { launch, signIn, openView, withPage, eventually } = require('./lib/browser');
+const { findOffScreen } = require('./lib/measure');
+const { comparePng } = require('./lib/pixels');
 const { targetURL, VIEWPORTS } = require('./lib/config');
 
-const { phone320, phone390, phoneLandscape, tablet, desktop1440 } = VIEWPORTS;
+const { phone320, phone390, phoneLandscape, phoneLandscapeShort, phoneLandscapeTiny, tablet, tablet991, desktop992, desktop1440 } = VIEWPORTS;
 const PHONES = [phone320, phone390];
 const BASE_URL = targetURL();
 const TEST_TIMEOUT = 120000;
@@ -105,9 +107,14 @@ function describeFocus() {
     const [hi, lo] = [luminance(a), luminance(b)].sort((x, y) => y - x);
     return (hi + 0.05) / (lo + 0.05);
   }
-  // the colour behind the element: the first opaque background up the tree
+  // the colour behind the element: the first opaque background up the tree from whatever is painted just outside its
+  // edge (a control laid over a panel is not inside it in the tree), or from the element's own parents
   function backdrop(node) {
-    for (let n = node; n; n = n.parentElement) {
+    const r = node.getBoundingClientRect();
+    const y = r.top + r.height / 2;
+    const side = r.left >= 2 ? r.left - 1 : r.right + 1;
+    const under = document.elementsFromPoint(side, y).find((e) => e !== node && !node.contains(e) && !e.contains(node));
+    for (let n = under || node; n; n = n.parentElement) {
       const c = parse(getComputedStyle(n).backgroundColor);
       if (c && c.a > 0.95) return c;
     }
@@ -513,6 +520,18 @@ const STICKY_VIEWS = {
   'environment wizard': '#!/wizard/endpoints/create?envType=dockerStandalone',
 };
 
+// Every view with a sticky action bar, for the sizes where the bar is a touch tablet's (or phone's) fixed footer.
+const ALL_STICKY_VIEWS = {
+  'new environment group': '#!/groups/new',
+  'edit environment group': '#!/groups/1',
+  'new GitOps source': '#!/gitops/sources/new',
+  'environment wizard (Docker standalone)': '#!/wizard/endpoints/create?envType=dockerStandalone',
+  'environment wizard (Docker Swarm)': '#!/wizard/endpoints/create?envType=dockerSwarm',
+  'environment wizard (Podman)': '#!/wizard/endpoints/create?envType=podman',
+  'environment wizard (Kubernetes)': '#!/wizard/endpoints/create?envType=kubernetes',
+  'environment wizard (Azure ACI)': '#!/wizard/endpoints/create?envType=aci',
+};
+
 // Tab through the view; after the page has stopped scrolling, the focused control must not lie behind the bar.
 async function actionBarProblems(page) {
   const problems = [];
@@ -537,10 +556,12 @@ async function actionBarProblems(page) {
       });
       const bar = document.querySelector('[class*="StickyFooter"][class*="actionBar"]');
       const el = document.activeElement;
-      if (!bar || !el || el === document.body || bar.contains(el)) return null;
+      // the sidebar rail is beside the bar, not under it
+      if (!bar || !el || el === document.body || bar.contains(el) || el.closest('.sidebar')) return null;
       const b = bar.getBoundingClientRect();
       const r = el.getBoundingClientRect();
-      const overlap = Math.min(r.bottom, b.bottom) - Math.max(r.top, b.top);
+      const across = Math.min(r.right, b.right) - Math.max(r.left, b.left);
+      const overlap = across > 0 ? Math.min(r.bottom, b.bottom) - Math.max(r.top, b.top) : 0;
       return { name: el.getAttribute('data-cy') || el.getAttribute('aria-label') || (el.textContent || '').trim().slice(0, 30) || el.tagName, overlap: Math.round(overlap), bar: Math.round(b.height) };
     });
     if (result && result.overlap > 0 && !seen.has(result.name)) {
@@ -551,15 +572,28 @@ async function actionBarProblems(page) {
   return problems;
 }
 
-async function scrollPaddingProblems(page) {
+async function scrollPaddingProblems(page, expected) {
   const padding = await page.evaluate(() => getComputedStyle(document.documentElement).scrollPaddingBottom);
+  if (expected) return padding === 'auto' ? ['scroll-padding-bottom is auto, so the bar can hide the focused field'] : [];
   return padding === 'auto' ? [] : [`scroll-padding-bottom is ${padding}`];
 }
 
-describe('the action bar does not hide the field that has focus (phones)', () => {
+describe('the action bar does not hide the field that has focus (phones and touch tablets)', () => {
   for (const [name, hash] of Object.entries(STICKY_VIEWS)) {
     test(`${name} at ${phone320.name}`, { timeout: TEST_TIMEOUT * 2 }, async () => {
       await onView(phone320, hash, async (page) => {
+        assert.deepEqual(await actionBarProblems(page), []);
+      });
+    });
+  }
+
+  // A phone on its side is 768px or wider, so it has the tablet's rules: the bar is ~64px there, and with no scroll
+  // padding the focused field was left fully behind it on every view that has one.
+  // Mutation: the scroll padding stops at 767px (as in 16e704c) - the planted fault below shows the detector fails
+  // when the padding is missing.
+  for (const [name, hash] of Object.entries(ALL_STICKY_VIEWS)) {
+    test(`${name} at ${phoneLandscape.name}`, { timeout: TEST_TIMEOUT * 2 }, async () => {
+      await onView(phoneLandscape, hash, async (page) => {
         assert.deepEqual(await actionBarProblems(page), []);
       });
     });
@@ -574,19 +608,44 @@ describe('the action bar does not hide the field that has focus (phones)', () =>
     });
   });
 
-  // Planted fault: the padding applied at every width, as an unfenced rule would.
-  test('planted fault: scroll padding at 768px is reported', { timeout: TEST_TIMEOUT }, async () => {
-    await onView(tablet, STICKY_VIEWS['new environment group'], async (page) => {
-      await page.addStyleTag({ content: 'html { scroll-padding-bottom: 7rem; }' });
-      assert.equal((await scrollPaddingProblems(page)).length, 1);
+  test('planted fault: a field behind the action bar is reported on a phone on its side', { timeout: TEST_TIMEOUT * 2 }, async () => {
+    await onView(phoneLandscape, STICKY_VIEWS['new environment group'], async (page) => {
+      await page.addStyleTag({ content: 'html { scroll-padding-bottom: 0 !important; }' });
+      const problems = await actionBarProblems(page);
+      assert.ok(problems.length > 0, 'a field behind the bar was not reported');
     });
   });
 
-  // Desktop and tablet keep the vendor's behaviour: no scroll padding is added.
-  for (const viewport of [tablet, desktop1440]) {
+  // Tablets and touch screens up to 991px get the padding; from 992px the vendor's layout has none.
+  for (const viewport of [tablet, tablet991, phoneLandscape]) {
+    test(`scroll padding is added at ${viewport.name}`, { timeout: TEST_TIMEOUT }, async () => {
+      await onView(viewport, STICKY_VIEWS['new environment group'], async (page) => {
+        assert.deepEqual(await scrollPaddingProblems(page, true), []);
+      });
+    });
+  }
+
+  // Planted fault: the padding applied at every width, as an unfenced rule would.
+  test('planted fault: scroll padding at 1440px is reported', { timeout: TEST_TIMEOUT }, async () => {
+    await onView(desktop1440, STICKY_VIEWS['new environment group'], async (page) => {
+      await page.addStyleTag({ content: 'html { scroll-padding-bottom: 7rem; }' });
+      assert.equal((await scrollPaddingProblems(page, false)).length, 1);
+    });
+  });
+
+  // Planted fault: the padding missing on a tablet is reported too.
+  test('planted fault: no scroll padding at 768px is reported', { timeout: TEST_TIMEOUT }, async () => {
+    await onView(tablet, STICKY_VIEWS['new environment group'], async (page) => {
+      await page.addStyleTag({ content: 'html { scroll-padding-bottom: auto !important; }' });
+      assert.equal((await scrollPaddingProblems(page, true)).length, 1);
+    });
+  });
+
+  // Desktop keeps the vendor's behaviour: no scroll padding is added.
+  for (const viewport of [desktop992, desktop1440]) {
     test(`no scroll padding is added at ${viewport.name}`, { timeout: TEST_TIMEOUT }, async () => {
       await onView(viewport, STICKY_VIEWS['new environment group'], async (page) => {
-        assert.deepEqual(await scrollPaddingProblems(page), []);
+        assert.deepEqual(await scrollPaddingProblems(page, false), []);
       });
     });
   }
@@ -594,12 +653,12 @@ describe('the action bar does not hide the field that has focus (phones)', () =>
 
 // ---- 8: the "Business Feature" badge has enough contrast on phones -------------------------------------------
 
-const BADGE = '.be-indicator-container > .limited-be-link a.be-indicator';
+// Every Business Feature badge: the one beside a locked switch, and the one on a locked panel.
+const BADGE = 'a.be-indicator';
+const BADGE_VIEWS = { settings: '#!/settings', 'add container': '#!/1/docker/containers/new' };
 
-// The contrast of the badge text against what is behind it, and the text colour, measured in the page.
-function badgeContrast(selector) {
-  const el = document.querySelector(selector);
-  if (!el) return null;
+// The contrast of each shown badge's text against what is behind it, and the text colour, measured in the page.
+function badgeContrasts(selector) {
   function parse(color) {
     const m = color.match(/rgba?\(([^)]+)\)/);
     const [r, g, b, a = 1] = m[1].split(/[ ,/]+/).filter(Boolean).map(Number);
@@ -612,37 +671,85 @@ function badgeContrast(selector) {
     });
     return 0.2126 * l[0] + 0.7152 * l[1] + 0.0722 * l[2];
   }
-  let bg = { r: 255, g: 255, b: 255, a: 1 };
-  for (let n = el; n; n = n.parentElement) {
-    const c = parse(getComputedStyle(n).backgroundColor);
-    if (c.a > 0.95) {
-      bg = c;
-      break;
-    }
-  }
-  const fg = parse(getComputedStyle(el).color);
-  const [hi, lo] = [lum(fg), lum(bg)].sort((a, b) => b - a);
-  const label = el.querySelector('.be-indicator-label');
-  return { color: getComputedStyle(label || el).color, ratio: (hi + 0.05) / (lo + 0.05) };
+  return [...document.querySelectorAll(selector)]
+    .filter((el) => el.getClientRects().length > 0)
+    .map((el) => {
+      let bg = { r: 255, g: 255, b: 255, a: 1 };
+      for (let n = el; n; n = n.parentElement) {
+        const c = parse(getComputedStyle(n).backgroundColor);
+        if (c.a > 0.95) {
+          bg = c;
+          break;
+        }
+      }
+      const label = el.querySelector('.be-indicator-label') || el;
+      const fg = parse(getComputedStyle(label).color);
+      const [hi, lo] = [lum(fg), lum(bg)].sort((a, b) => b - a);
+      return { color: getComputedStyle(label).color, border: getComputedStyle(el).borderTopColor, ratio: (hi + 0.05) / (lo + 0.05), locked: !!el.closest('.limited-be-link') };
+    });
+}
+
+function badgeProblems(badges, what) {
+  const problems = [];
+  if (badges.length === 0) problems.push(`${what}: no Business Feature badge is shown`);
+  badges.forEach((b, i) => {
+    if (b.ratio < 4.5) problems.push(`${what}: badge ${i + 1}${b.locked ? ' (locked panel)' : ' (switch)'} text is ${b.color}, ${b.ratio.toFixed(2)}:1`);
+  });
+  return problems;
+}
+
+async function setTheme(page, theme) {
+  // the attribute the application itself sets on <html>; the stored theme preference is not touched
+  await page.evaluate((t) => (t === 'light' ? document.documentElement.removeAttribute('theme') : document.documentElement.setAttribute('theme', t)), theme);
+  await page.waitForTimeout(250);
 }
 
 describe('the Business Feature badge on phones', () => {
+  // Mutation: the badge rule covers only the locked panel's badge (as in 16e704c), so the badge beside a switch
+  // keeps the vendor's 2.58:1 grey.
   for (const viewport of PHONES) {
-    test(`its text reaches 4.5:1 at ${viewport.name}`, { timeout: TEST_TIMEOUT }, async () => {
-      await onView(viewport, '#!/settings', async (page) => {
-        const result = await page.evaluate(badgeContrast, BADGE);
-        assert.ok(result, 'no Business Feature badge on the settings page');
-        assert.ok(result.ratio >= 4.5, `the badge text is ${result.color}, ${result.ratio.toFixed(2)}:1`);
+    for (const [name, hash] of Object.entries(BADGE_VIEWS)) {
+      test(`every badge reaches 4.5:1 in the light theme on ${name} at ${viewport.name}`, { timeout: TEST_TIMEOUT }, async () => {
+        await onView(viewport, hash, async (page) => {
+          await setTheme(page, 'light');
+          assert.deepEqual(badgeProblems(await page.evaluate(badgeContrasts, BADGE), name), []);
+        });
+      });
+    }
+  }
+
+  // Planted fault: the vendor's grey put back on every badge.
+  test('planted fault: the pale grey badge text is reported', { timeout: TEST_TIMEOUT }, async () => {
+    await onView(phone390, '#!/settings', async (page) => {
+      await page.addStyleTag({ content: `${BADGE}, ${BADGE} * { color: rgb(152, 162, 179) !important }` });
+      const problems = badgeProblems(await page.evaluate(badgeContrasts, BADGE), 'settings');
+      assert.ok(problems.length >= 4, `got: ${problems.join('; ')}`);
+    });
+  });
+
+  // The dark and high contrast themes sit on a dark background where the vendor's colours are already clear: they
+  // are not changed.
+  for (const theme of ['dark', 'highcontrast']) {
+    test(`the ${theme} theme keeps the vendor's colours at ${phone390.name}`, { timeout: TEST_TIMEOUT }, async () => {
+      await onView(phone390, '#!/settings', async (page) => {
+        await setTheme(page, theme);
+        const badges = await page.evaluate(badgeContrasts, BADGE);
+        assert.ok(badges.length > 0, 'no badge shown');
+        for (const b of badges) {
+          assert.notEqual(b.color, 'rgb(102, 112, 133)', 'the light theme colour is used in the dark theme');
+          assert.ok(b.ratio >= 4.5, `${theme}: ${b.color} is ${b.ratio.toFixed(2)}:1`);
+        }
       });
     });
   }
 
-  // Planted fault: the vendor's grey put back.
-  test('planted fault: the pale grey badge text is reported', { timeout: TEST_TIMEOUT }, async () => {
+  // Planted fault: the light colour applied in every theme, as a rule that ignores the theme would.
+  test('planted fault: the light theme colour in the dark theme is reported', { timeout: TEST_TIMEOUT }, async () => {
     await onView(phone390, '#!/settings', async (page) => {
-      await page.addStyleTag({ content: `${BADGE}, ${BADGE} * { color: rgb(152, 162, 179) !important }` });
-      const result = await page.evaluate(badgeContrast, BADGE);
-      assert.ok(result.ratio < 4.5, `${result.ratio}`);
+      await setTheme(page, 'dark');
+      await page.addStyleTag({ content: `${BADGE}, ${BADGE} * { color: rgb(102, 112, 133) !important }` });
+      const badges = await page.evaluate(badgeContrasts, BADGE);
+      assert.ok(badges.some((b) => b.color === 'rgb(102, 112, 133)'));
     });
   });
 
@@ -650,9 +757,10 @@ describe('the Business Feature badge on phones', () => {
   for (const viewport of [tablet, desktop1440, VIEWPORTS.desktop1920]) {
     test(`it keeps the vendor's colour at ${viewport.name}`, { timeout: TEST_TIMEOUT }, async () => {
       await onView(viewport, '#!/settings', async (page) => {
-        const result = await page.evaluate(badgeContrast, '.be-indicator-container .be-indicator, .be-indicator');
-        assert.ok(result, 'no Business Feature badge on the settings page');
-        assert.equal(result.color, 'rgb(152, 162, 179)');
+        await setTheme(page, 'light');
+        const badges = await page.evaluate(badgeContrasts, BADGE);
+        assert.ok(badges.length > 0, 'no Business Feature badge on the settings page');
+        for (const b of badges) assert.equal(b.color, 'rgb(152, 162, 179)');
       });
     });
   }
@@ -705,7 +813,7 @@ describe('breadcrumbs for assistive technology', () => {
   });
 });
 
-// ---- 10: the version button in the drawer is big enough to tap ------------------------------------------------
+// ---- 10: the version button in the drawer is big enough to tap, and shows when it has focus -----------------------
 
 const VERSION = '[data-cy="portainerSidebar-versionNumber"]';
 
@@ -729,4 +837,390 @@ describe('the version button in the phone drawer', () => {
       assert.ok(box.height < 24, `the version button grew to ${Math.round(box.height)}px at the desktop size`);
     });
   });
+});
+
+// What the version button shows when a keyboard user reaches it.
+async function versionFocusProblems(page) {
+  await page.locator(VERSION).focus();
+  const info = await page.evaluate((selector) => {
+    const el = document.querySelector(selector);
+    const style = getComputedStyle(el);
+    return { active: document.activeElement === el, focusVisible: el.matches(':focus-visible'), outlineStyle: style.outlineStyle, outlineWidth: parseFloat(style.outlineWidth), shadow: style.boxShadow };
+  }, VERSION);
+  const problems = [];
+  if (!info.active) problems.push('the version button did not take focus');
+  if (!info.focusVisible) problems.push('the version button does not match :focus-visible');
+  const hasOutline = info.outlineStyle !== 'none' && info.outlineWidth > 0;
+  const hasShadow = info.shadow !== 'none';
+  if (!hasOutline && !hasShadow) problems.push('the version button shows no focus indicator');
+  return problems;
+}
+
+describe('the version button shows when it has keyboard focus', () => {
+  // Mutation: `.btn-none:focus { outline: none }` is left to win in the drawer (as in 16e704c).
+  for (const viewport of PHONES) {
+    test(`it has a visible focus indicator in the phone drawer at ${viewport.name}`, { timeout: TEST_TIMEOUT }, async () => {
+      await onView(viewport, CONTAINER, async (page) => {
+        await openDrawerWithKeyboard(page);
+        assert.deepEqual(await versionFocusProblems(page), []);
+      });
+    });
+  }
+
+  // Planted fault: every outline taken away.
+  test('planted fault: a version button without a focus indicator is reported', { timeout: TEST_TIMEOUT }, async () => {
+    await onView(phone390, CONTAINER, async (page) => {
+      await openDrawerWithKeyboard(page);
+      await page.addStyleTag({ content: NO_RINGS });
+      const problems = await versionFocusProblems(page);
+      assert.ok(
+        problems.some((p) => /no focus indicator/.test(p)),
+        `got: ${problems.join('; ')}`
+      );
+    });
+  });
+
+  // The ring is for phones only: the desktop sidebar keeps the vendor's button, which shows none.
+  test("the desktop sidebar keeps the vendor's button (no outline added) at 1440", { timeout: TEST_TIMEOUT }, async () => {
+    await onView(desktop1440, CONTAINER, async (page) => {
+      await page.keyboard.press('Tab');
+      await page.locator(VERSION).focus();
+      const outline = await page.evaluate((selector) => getComputedStyle(document.querySelector(selector)).outlineStyle, VERSION);
+      assert.equal(outline, 'none');
+    });
+  });
+});
+
+// ---- 11: following a drawer link to another page leaves focus on the new page's toggle ----------------------
+
+async function focusOnToggleProblems(page) {
+  return page.evaluate((toggle) => {
+    const el = document.querySelector(toggle);
+    if (!el) return ['the new page has no sidebar toggle'];
+    if (document.activeElement === el) return [];
+    const active = document.activeElement;
+    return [`focus is on ${active === document.body ? 'the page body' : `<${active.tagName.toLowerCase()}>`}, not on the sidebar toggle of the page that was opened`];
+  }, TOGGLE);
+}
+
+describe('focus after following a link in the phone drawer to another page', () => {
+  // Mutation: the drawer returns focus to the toggle of the page it is leaving, which is then replaced, so focus
+  // drops to <body> (as in 16e704c).
+  for (const viewport of PHONES) {
+    test(`a keyboard user lands on the toggle of the new page at ${viewport.name}`, { timeout: TEST_TIMEOUT }, async () => {
+      await onView(viewport, CONTAINER, async (page) => {
+        await openDrawerWithKeyboard(page);
+        await page.locator(`${DIALOG} a[href="#!/home"]`).first().focus();
+        await page.keyboard.press('Enter');
+        await eventually(async () => assert.match(await page.evaluate(() => location.hash), /#!\/home/), { timeout: 5000 });
+        await eventually(async () => assert.deepEqual(await focusOnToggleProblems(page), []), { timeout: 5000 });
+        // it stays there, and the next Tab goes on from it
+        await page.waitForTimeout(600);
+        assert.deepEqual(await focusOnToggleProblems(page), []);
+        assert.equal(await drawerIsOpen(page), false);
+      });
+    });
+
+    test(`a tap lands on the toggle of the new page at ${viewport.name}`, { timeout: TEST_TIMEOUT }, async () => {
+      await onView(viewport, CONTAINER, async (page) => {
+        await openDrawerWithKeyboard(page);
+        await page.locator(`${DIALOG} a[href="#!/home"]`).first().tap();
+        await eventually(async () => assert.match(await page.evaluate(() => location.hash), /#!\/home/), { timeout: 5000 });
+        await eventually(async () => assert.deepEqual(await focusOnToggleProblems(page), []), { timeout: 5000 });
+      });
+    });
+  }
+
+  // Planted fault: focus dropped to the body after the navigation.
+  test('planted fault: focus left on the body after a link is reported', { timeout: TEST_TIMEOUT }, async () => {
+    await onView(phone390, CONTAINER, async (page) => {
+      await page.evaluate(() => document.activeElement && document.activeElement.blur());
+      assert.equal((await focusOnToggleProblems(page)).length, 1);
+    });
+  });
+});
+
+// ---- 12: the environment wizard fits a phone, with its panels stacked -------------------------------------------
+
+const WIZARD_TYPES = { 'Docker standalone': 'dockerStandalone', 'Docker Swarm': 'dockerSwarm', Podman: 'podman', Kubernetes: 'kubernetes', 'Azure ACI': 'aci' };
+const wizardView = (type) => `#!/wizard/endpoints/create?envType=${type}`;
+
+// Where the wizard's two panels are, in the page.
+function wizardPanels() {
+  const find = (title) => [...document.querySelectorAll('section.widget')].find((w) => w.querySelector('.widget-header')?.textContent.includes(title));
+  const main = find('Environment Wizard');
+  const added = find('New Environments');
+  if (!main || !added) return null;
+  const a = main.getBoundingClientRect();
+  const b = added.getBoundingClientRect();
+  return { main: { left: a.left, right: a.right, top: a.top, bottom: a.bottom }, added: { left: b.left, right: b.right, top: b.top, bottom: b.bottom }, vw: document.documentElement.clientWidth };
+}
+
+function stackedProblems(panels) {
+  if (!panels) return ['the wizard panels were not found'];
+  const problems = [];
+  if (panels.added.top < panels.main.bottom - 1) problems.push(`the "New Environments" panel starts at ${Math.round(panels.added.top)}px, beside the wizard (which ends at ${Math.round(panels.main.bottom)}px) instead of below it`);
+  if (panels.added.right > panels.vw + 1) problems.push(`the "New Environments" panel runs to ${Math.round(panels.added.right)}px in a ${panels.vw}px window`);
+  return problems;
+}
+
+function sideBySideProblems(panels) {
+  if (!panels) return ['the wizard panels were not found'];
+  return panels.added.left >= panels.main.right - 1 && Math.abs(panels.added.top - panels.main.top) <= 2 ? [] : ['the wizard panels are not side by side'];
+}
+
+describe('the environment wizard on phones', () => {
+  // Mutation: the two-column grid is kept on phones, with its 300px minimum for the second column (as in 16e704c);
+  // the page is then 539px wide.
+  for (const viewport of [phone320, phone390, VIEWPORTS.tablet767]) {
+    for (const [name, type] of Object.entries(WIZARD_TYPES)) {
+      test(`${name}: nothing runs off the page, and the panels are stacked at ${viewport.name}`, { timeout: TEST_TIMEOUT }, async () => {
+        await onView(viewport, wizardView(type), async (page) => {
+          assert.deepEqual(await page.evaluate(findOffScreen), []);
+          assert.deepEqual(stackedProblems(await page.evaluate(wizardPanels)), []);
+        });
+      });
+    }
+  }
+
+  // Planted fault: a panel pushed past the right edge.
+  test('planted fault: a panel that runs off the page is reported', { timeout: TEST_TIMEOUT }, async () => {
+    await onView(phone320, wizardView('dockerStandalone'), async (page) => {
+      await page.addStyleTag({ content: '[class*="wizard-wrapper"] { grid-template-columns: 2fr minmax(300px, 1fr) !important; grid-template-areas: "main sidebar" "footer sidebar" !important; }' });
+      assert.ok((await page.evaluate(findOffScreen)).length > 0, 'a 539px wide page was not reported');
+      assert.ok(stackedProblems(await page.evaluate(wizardPanels)).length > 0);
+    });
+  });
+
+  // From 768px the vendor's two columns are kept.
+  for (const viewport of [tablet, tablet991, phoneLandscape, desktop1440]) {
+    test(`the panels stay side by side at ${viewport.name}`, { timeout: TEST_TIMEOUT }, async () => {
+      await onView(viewport, wizardView('dockerStandalone'), async (page) => {
+        assert.deepEqual(sideBySideProblems(await page.evaluate(wizardPanels)), []);
+      });
+    });
+  }
+
+  // Planted fault: the panels stacked at the desktop width, as an unfenced rule would.
+  test('planted fault: panels stacked at 1440px are reported', { timeout: TEST_TIMEOUT }, async () => {
+    await onView(desktop1440, wizardView('dockerStandalone'), async (page) => {
+      await page.addStyleTag({ content: '[class*="wizard-wrapper"] { grid-template-columns: minmax(0, 1fr) !important; grid-template-areas: none !important; }' });
+      assert.equal(sideBySideProblems(await page.evaluate(wizardPanels)).length, 1);
+    });
+  });
+});
+
+// ---- 13: the Close menu button sits in the logo row ---------------------------------------------------------------
+
+const LOGO_LINK = `${DIALOG} [data-cy="portainerSidebar-homeImage"]`;
+const MENU_SCROLL_AREA = `${DIALOG} nav > div:nth-child(2)`;
+
+async function closeRowProblems(page, minMenuHeight) {
+  const info = await page.evaluate(
+    ({ close, logo, menu }) => {
+      const rect = (selector) => {
+        const el = document.querySelector(selector);
+        if (!el) return null;
+        const r = el.getBoundingClientRect();
+        return { top: r.top, bottom: r.bottom, left: r.left, right: r.right, width: r.width, height: r.height };
+      };
+      return { close: rect(close), logo: rect(logo), menu: rect(menu), vw: document.documentElement.clientWidth, focused: document.activeElement?.getAttribute('aria-label') };
+    },
+    { close: CLOSE, logo: LOGO_LINK, menu: MENU_SCROLL_AREA }
+  );
+  const problems = [];
+  if (!info.close || !info.logo || !info.menu) return ['the drawer parts were not found'];
+  // level with the logo: the two are centred on the same line (the logo is a little shorter than the button on the
+  // narrowest phones, where it is scaled down to leave room for the button)
+  const offset = Math.abs((info.close.top + info.close.bottom) / 2 - (info.logo.top + info.logo.bottom) / 2);
+  if (offset > 6) {
+    problems.push(`the Close menu button (${Math.round(info.close.top)}..${Math.round(info.close.bottom)}) is not level with the logo (${Math.round(info.logo.top)}..${Math.round(info.logo.bottom)})`);
+  }
+  if (info.close.left < 0 || info.close.right > info.vw) problems.push('the Close menu button is outside the window');
+  if (info.menu.height < minMenuHeight) problems.push(`the menu's scroll area is only ${Math.round(info.menu.height)}px tall, under ${minMenuHeight}px`);
+  const logoImage = await page.locator(`${LOGO_LINK} img`).boundingBox();
+  if (logoImage && logoImage.x + logoImage.width > info.close.left + 0.5) problems.push(`the logo (to ${Math.round(logoImage.x + logoImage.width)}px) runs under the Close menu button (from ${Math.round(info.close.left)}px)`);
+  return problems;
+}
+
+describe('the Close menu button is in the logo row of the phone drawer', () => {
+  // Mutation: the button gets a row of its own above the logo (as in 16e704c): the menu's scroll area is squeezed to
+  // 80px at 568x320 and 30px at 568x270, and the button is not level with the logo.
+  for (const [viewport, minMenuHeight] of [
+    [phoneLandscapeShort, 120],
+    [phoneLandscapeTiny, 70],
+    [phone320, 300],
+    [phone390, 400],
+  ]) {
+    test(`no height is lost to it at ${viewport.name}`, { timeout: TEST_TIMEOUT }, async () => {
+      await onView(viewport, CONTAINER, async (page) => {
+        await openDrawerWithKeyboard(page);
+        assert.deepEqual(await closeRowProblems(page, minMenuHeight), []);
+      });
+    });
+
+    test(`it is first in the focus order, named, 44x44 and holds the initial focus at ${viewport.name}`, { timeout: TEST_TIMEOUT }, async () => {
+      await onView(viewport, CONTAINER, async (page) => {
+        await openDrawerWithKeyboard(page);
+        assert.deepEqual(await closeButtonProblems(page), []);
+        assert.equal(await page.evaluate(() => document.activeElement?.getAttribute('aria-label')), 'Close menu', 'focus did not start on the Close menu button');
+      });
+    });
+  }
+
+  // Planted fault: a row of its own, 56px tall, above the logo.
+  test('planted fault: a Close menu row above the logo is reported', { timeout: TEST_TIMEOUT }, async () => {
+    await onView(phoneLandscapeShort, CONTAINER, async (page) => {
+      await openDrawerWithKeyboard(page);
+      await page.evaluate(() => {
+        const nav = document.querySelector('.sidebar[role="dialog"] nav');
+        nav.style.marginTop = '56px';
+      });
+      const problems = await closeRowProblems(page, 120);
+      assert.ok(problems.length >= 1, `got: ${problems.join('; ')}`);
+    });
+  });
+
+  // The upgrade banner of the Community Edition sits above the logo row and is not on this instance: put one in, after
+  // the Close menu button, and the button must still be level with the logo.
+  test('it stays level with the logo when the upgrade banner is shown above the logo row', { timeout: TEST_TIMEOUT }, async () => {
+    await onView(phone390, CONTAINER, async (page) => {
+      await openDrawerWithKeyboard(page);
+      await page.evaluate(() => {
+        const banner = document.createElement('button');
+        banner.type = 'button';
+        banner.textContent = 'Upgrade to Business Edition';
+        banner.className = 'flex w-full items-center justify-center py-2';
+        banner.style.height = '40px';
+        const close = document.querySelector('.sidebar[role="dialog"] button[aria-label="Close menu"]');
+        // the banner is the next child of the drawer after the Close menu button, as in the application
+        close.insertAdjacentElement('afterend', banner);
+      });
+      assert.deepEqual(await closeRowProblems(page, 300), []);
+    });
+  });
+
+  // G2: the focus ring is painted all the way round, over whatever is next to the button.
+  test('its focus ring is visible on all four sides', { timeout: TEST_TIMEOUT }, async () => {
+    await onView(phone390, CONTAINER, async (page) => {
+      await openDrawerWithKeyboard(page);
+      assert.deepEqual(await ringSidesProblems(page, CLOSE), []);
+    });
+  });
+
+  // Planted fault: the ring is taken away.
+  test('planted fault: a button whose ring is not painted is reported', { timeout: TEST_TIMEOUT }, async () => {
+    await onView(phone390, CONTAINER, async (page) => {
+      await openDrawerWithKeyboard(page);
+      await page.addStyleTag({ content: NO_RINGS });
+      assert.ok((await ringSidesProblems(page, CLOSE)).length > 0, 'a ring that is not painted was not reported');
+    });
+  });
+});
+
+// Compares the pixels around a focused control with the same pixels when it is not focused: the ring must show up
+// at least 2px past each of its four sides.
+async function ringSidesProblems(page, selector) {
+  const box = await page.locator(selector).boundingBox();
+  const margin = 6;
+  const clip = { x: Math.floor(box.x) - margin, y: Math.floor(box.y) - margin, width: Math.ceil(box.width) + margin * 2, height: Math.ceil(box.height) + margin * 2 };
+  const focused = await page.screenshot({ clip });
+  await page.locator(selector).evaluate((el) => el.blur());
+  const blurred = await page.screenshot({ clip });
+  await page.locator(selector).focus();
+  const diff = await comparePng(browser, blurred, focused);
+  const problems = [];
+  if (!diff.box) return ['left', 'right', 'top', 'bottom'].map((side) => `no ring is painted on the ${side} side`);
+  const need = 2;
+  if (diff.box.x > margin - need) problems.push('the ring is cut off on the left side');
+  if (diff.box.y > margin - need) problems.push('the ring is cut off on the top side');
+  if (diff.box.x + diff.box.width < clip.width - margin + need) problems.push('the ring is cut off on the right side');
+  if (diff.box.y + diff.box.height < clip.height - margin + need) problems.push('the ring is cut off on the bottom side');
+  return problems;
+}
+
+// ---- 14: a button in a table that scrolls sideways keeps its label on one line ---------------------------------
+
+// The number of lines the label of the "Leave Network" button is set on.
+function leaveNetworkLines() {
+  const button = document.querySelector('[data-cy^="networkDetails-disconnect"]');
+  if (!button) return null;
+  const tops = new Set();
+  const walker = document.createTreeWalker(button, NodeFilter.SHOW_TEXT);
+  for (let node = walker.nextNode(); node; node = walker.nextNode()) {
+    if (!node.textContent.trim()) continue;
+    const range = document.createRange();
+    range.selectNodeContents(node);
+    for (const rect of range.getClientRects()) tops.add(Math.round(rect.top));
+  }
+  return { lines: tops.size, text: button.textContent.trim() };
+}
+
+describe('"Leave Network" on phones', () => {
+  // Mutation: `.btn { white-space: normal }` and `td { overflow-wrap: anywhere }` apply to it (as in 16e704c), and
+  // the label breaks into five pieces.
+  for (const viewport of PHONES) {
+    test(`the label is on one line at ${viewport.name}`, { timeout: TEST_TIMEOUT }, async () => {
+      await onView(viewport, networkWithContainers, async (page) => {
+        const info = await page.evaluate(leaveNetworkLines);
+        assert.ok(info, 'no Leave Network button on this network');
+        assert.equal(info.lines, 1, `"${info.text}" is set on ${info.lines} lines`);
+      });
+    });
+  }
+
+  // Planted fault: the label allowed to break anywhere again.
+  test('planted fault: a label broken into pieces is reported', { timeout: TEST_TIMEOUT }, async () => {
+    await onView(phone320, networkWithContainers, async (page) => {
+      await page.addStyleTag({ content: '[data-cy^="networkDetails-disconnect"] { white-space: normal !important; overflow-wrap: anywhere !important; width: 40px !important; }' });
+      const info = await page.evaluate(leaveNetworkLines);
+      assert.ok(info.lines > 1, `${info.lines}`);
+    });
+  });
+});
+
+// ---- 15: "Clear environment" in the phone drawer is a touch target -------------------------------------------------
+
+const CLEAR_ENV = `${DIALOG} button[title="Clear environment"]`;
+
+describe('"Clear environment" in the phone drawer', () => {
+  // Mutation: the button keeps the vendor's 20x20px box on touch phones (as in 16e704c).
+  for (const viewport of PHONES) {
+    test(`it is 44x44 on a touch phone at ${viewport.name}`, { timeout: TEST_TIMEOUT }, async () => {
+      await onView(viewport, CONTAINER, async (page) => {
+        await openDrawerWithKeyboard(page);
+        const box = await page.locator(CLEAR_ENV).boundingBox();
+        assert.ok(box, 'no Clear environment button in the open drawer');
+        assert.ok(box.width >= 43.5 && box.height >= 43.5, `the button is ${Math.round(box.width)}x${Math.round(box.height)}`);
+        const row = await page.locator(CLEAR_ENV).evaluate((el) => { const r = el.parentElement.getBoundingClientRect(); const d = el.closest('.sidebar').getBoundingClientRect(); return { right: r.right, drawerRight: d.right }; });
+        assert.ok(row.right <= row.drawerRight + 1, 'the row runs past the drawer');
+      });
+    });
+  }
+
+  // Planted fault: the vendor's box.
+  test('planted fault: a 20px Clear environment button is reported', { timeout: TEST_TIMEOUT }, async () => {
+    await onView(phone390, CONTAINER, async (page) => {
+      await openDrawerWithKeyboard(page);
+      await page.addStyleTag({ content: `${CLEAR_ENV} { width: 20px !important; height: 20px !important; }` });
+      const box = await page.locator(CLEAR_ENV).boundingBox();
+      assert.ok(box.width < 43.5);
+    });
+  });
+
+  // The larger box is for the phone drawer: the tablet's and desktop's sidebars keep the vendor's.
+  for (const viewport of [tablet, desktop1440]) {
+    test(`it keeps the vendor's 20x20 at ${viewport.name}`, { timeout: TEST_TIMEOUT }, async () => {
+      await onView(viewport, CONTAINER, async (page) => {
+        if (viewport.width < 992) {
+          await page.locator(TOGGLE).tap();
+          await page.waitForTimeout(500);
+        }
+        const box = await page.locator('.sidebar button[title="Clear environment"]').boundingBox();
+        assert.ok(box, 'no Clear environment button in the expanded sidebar');
+        assert.equal(Math.round(box.width), 20);
+        assert.equal(Math.round(box.height), 20);
+      });
+    });
+  }
 });

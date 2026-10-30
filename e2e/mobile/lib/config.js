@@ -34,10 +34,15 @@ const VIEWPORTS = {
   phone360: { name: 'phone-360x740', width: 360, height: 740, mobile: true },
   phone390: { name: 'phone-390x844', width: 390, height: 844, mobile: true },
   phoneLandscape: { name: 'phone-landscape-844x390', width: 844, height: 390, mobile: true },
+  // Small phones on their side: the drawer is only 320 and 270px tall.
+  phoneLandscapeShort: { name: 'phone-landscape-568x320', width: 568, height: 320, mobile: true },
+  phoneLandscapeTiny: { name: 'phone-landscape-568x270', width: 568, height: 270, mobile: true },
   // Both sides of the 768px (drawer) and 992px (sidebar rail) breakpoints.
   tablet767: { name: 'tablet-767x1024', width: 767, height: 1024, mobile: true },
   tablet: { name: 'tablet-768x1024', width: 768, height: 1024, mobile: true },
   tablet991: { name: 'tablet-991x800', width: 991, height: 800, mobile: true },
+  // The first width that is not a tablet.
+  desktop992: { name: 'desktop-992x800', width: 992, height: 800, mobile: false },
   desktop1440: { name: 'desktop-1440x900', width: 1440, height: 900, mobile: false },
   desktop1920: { name: 'desktop-1920x1080', width: 1920, height: 1080, mobile: false },
 };
