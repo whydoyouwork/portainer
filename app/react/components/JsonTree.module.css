@@ -36,3 +36,15 @@
     white-space: pre-wrap;
   }
 }
+
+/* Touch screens: the expand and collapse toggles reach 24px, the WCAG 2.2 minimum, and the rows of the
+   tree grow only that much. */
+@media only screen and (max-width: 991px) and (pointer: coarse) {
+  .json-tree .chevronIcon {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 24px;
+    min-height: 24px;
+  }
+}

@@ -101,8 +101,29 @@
     min-height: 44px;
   }
 
-  .btn:not(table .btn):not(.btn-link):not(.btn-none) {
+  .btn:not(table .btn):not(.btn-link) {
     min-width: 44px;
+  }
+
+  /* Buttons that are not Bootstrap buttons: sort bars, pagination, the table settings gear, stepper
+     steps. The date range picker's two icon buttons keep their 24px: they share one narrow line with
+     the fields, and 24px is the WCAG 2.2 minimum. */
+  button:not(.btn):not(table button):not(.sidebar button):not(.react-daterange-picker__button) {
+    min-height: 44px;
+    min-width: 44px;
+  }
+
+  /* Tabs and pills are navigation: their rows reach the touch size too. */
+  .nav-tabs > li > a,
+  .nav-pills > li > a {
+    display: flex;
+    align-items: center;
+    min-height: 44px;
+  }
+
+  /* A taller button in a section title must not float down over the text that follows it. */
+  .form-section-title {
+    display: flow-root;
   }
 
   .form-control:not(table .form-control),
@@ -115,5 +136,16 @@
   input[type='url']:not(table input) {
     min-height: 44px;
     font-size: 16px;
+  }
+}
+
+/* The phone drawer: its rows reach the 44px touch size. */
+@media only screen and (max-width: 767px) and (pointer: coarse) {
+  .sidebar .h-8 {
+    height: 44px;
+  }
+
+  .sidebar .min-h-8 {
+    min-height: 44px;
   }
 }
