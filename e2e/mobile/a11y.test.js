@@ -704,10 +704,11 @@ async function setTheme(page, theme) {
   await page.waitForTimeout(250);
 }
 
-describe('the Business Feature badge on phones', () => {
+describe('the Business Feature badge on phones and tablets', () => {
   // Mutation: the badge rule covers only the locked panel's badge (as in 16e704c), so the badge beside a switch
-  // keeps the vendor's 2.58:1 grey.
-  for (const viewport of PHONES) {
+  // keeps the vendor's 2.58:1 grey. Mutation: fence the rule at 767px (as in 5be42f2): the tablets (768 to 991px)
+  // keep the vendor's grey, 2.53 to 2.58:1.
+  for (const viewport of [...PHONES, tablet, tablet991]) {
     for (const [name, hash] of Object.entries(BADGE_VIEWS)) {
       test(`every badge reaches 4.5:1 in the light theme on ${name} at ${viewport.name}`, { timeout: TEST_TIMEOUT }, async () => {
         await onView(viewport, hash, async (page) => {
@@ -753,13 +754,51 @@ describe('the Business Feature badge on phones', () => {
     });
   });
 
-  // The colour change is for phones only: from 768px up the badge keeps the vendor's colour.
-  for (const viewport of [tablet, desktop1440, VIEWPORTS.desktop1920]) {
+  // The colour change is for phones and tablets only: from 992px up the badge keeps the vendor's colour.
+  // Mutation: take the media query off the rule.
+  for (const viewport of [desktop992, desktop1440, VIEWPORTS.desktop1920]) {
     test(`it keeps the vendor's colour at ${viewport.name}`, { timeout: TEST_TIMEOUT }, async () => {
       await onView(viewport, '#!/settings', async (page) => {
         await setTheme(page, 'light');
         const badges = await page.evaluate(badgeContrasts, BADGE);
         assert.ok(badges.length > 0, 'no Business Feature badge on the settings page');
+        for (const b of badges) assert.equal(b.color, 'rgb(152, 162, 179)');
+      });
+    });
+  }
+});
+
+// The badge under a locked option of a box selector (the S3 backup option of the settings page).
+const BOX_BADGE = 'a[href*="business-upsell"].text-gray-6';
+
+describe('the Business Feature badge of a locked box selector option', () => {
+  // Mutation: remove the two `business-upsell` rules of mobile.css (as in 5be42f2): the text is the vendor's grey, 2.58:1.
+  for (const viewport of [phone320, phone390, tablet, tablet991]) {
+    test(`it reaches 4.5:1 in the light theme at ${viewport.name}`, { timeout: TEST_TIMEOUT }, async () => {
+      await onView(viewport, '#!/settings', async (page) => {
+        await setTheme(page, 'light');
+        assert.deepEqual(badgeProblems(await page.evaluate(badgeContrasts, BOX_BADGE), 'settings'), []);
+      });
+    });
+  }
+
+  // (the vendor's links are blue in the dark theme, and so is this one)
+  test(`the dark theme keeps the vendor's colour at ${phone390.name}`, { timeout: TEST_TIMEOUT }, async () => {
+    await onView(phone390, '#!/settings', async (page) => {
+      await setTheme(page, 'dark');
+      const badges = await page.evaluate(badgeContrasts, BOX_BADGE);
+      assert.ok(badges.length > 0, 'no badge shown');
+      for (const b of badges) assert.equal(b.color, 'rgb(11, 165, 236)');
+    });
+  });
+
+  // Mutation: take the media query off the rule.
+  for (const viewport of [desktop992, desktop1440]) {
+    test(`it keeps the vendor's grey at ${viewport.name}`, { timeout: TEST_TIMEOUT }, async () => {
+      await onView(viewport, '#!/settings', async (page) => {
+        await setTheme(page, 'light');
+        const badges = await page.evaluate(badgeContrasts, BOX_BADGE);
+        assert.ok(badges.length > 0, 'no badge shown');
         for (const b of badges) assert.equal(b.color, 'rgb(152, 162, 179)');
       });
     });
@@ -1220,6 +1259,86 @@ describe('"Clear environment" in the phone drawer', () => {
         assert.ok(box, 'no Clear environment button in the expanded sidebar');
         assert.equal(Math.round(box.width), 20);
         assert.equal(Math.round(box.height), 20);
+      });
+    });
+  }
+});
+
+// ---- 15: link-style buttons have enough contrast in the light theme -------------------------------------------
+
+const LINK_BUTTON = '.btn.btn-link:not(:disabled):not(.disabled)';
+const VENDOR_LINK_BLUE = 'rgb(0, 134, 201)';
+
+function linkButtonProblems(buttons, what) {
+  const problems = [];
+  if (buttons.length < 4) problems.push(`${what}: found only ${buttons.length} link-style buttons`);
+  buttons.forEach((b, i) => {
+    if (b.ratio < 4.5) problems.push(`${what}: link-style button ${i + 1} is ${b.color}, ${b.ratio.toFixed(2)}:1`);
+  });
+  return problems;
+}
+
+describe('link-style buttons on phones and tablets', () => {
+  const detail = () => `#!/1/docker/containers/${containerId}`;
+
+  // Mutation: remove the `.btn.btn-link` rule of bootstrap-mobile.css (as in 5be42f2): "Logs", "Inspect", "Stats",
+  // "Console", "Attach", "Change ownership" and "Advanced mode" are the vendor's blue, 4.0:1 on white.
+  for (const viewport of [phone320, phone390, tablet, tablet991]) {
+    test(`every link-style button reaches 4.5:1 in the light theme at ${viewport.name}`, { timeout: TEST_TIMEOUT }, async () => {
+      await onView(viewport, detail(), async (page) => {
+        await setTheme(page, 'light');
+        assert.deepEqual(linkButtonProblems(await page.evaluate(badgeContrasts, LINK_BUTTON), 'container'), []);
+      });
+    });
+  }
+
+  // Planted fault: the vendor's blue put back on every link-style button.
+  test('planted fault: the vendor blue is reported', { timeout: TEST_TIMEOUT }, async () => {
+    await onView(phone390, detail(), async (page) => {
+      await page.addStyleTag({ content: `${LINK_BUTTON} { color: ${VENDOR_LINK_BLUE} !important }` });
+      const problems = linkButtonProblems(await page.evaluate(badgeContrasts, LINK_BUTTON), 'container');
+      assert.ok(problems.length >= 5, `got: ${problems.join('; ')}`);
+    });
+  });
+
+  // A hovered button is still told apart from one at rest (the next darker blue again).
+  test('a hovered link-style button is darker than one at rest', { timeout: TEST_TIMEOUT }, async () => {
+    await onView(tablet, detail(), async (page) => {
+      await setTheme(page, 'light');
+      const button = page.locator(LINK_BUTTON).first();
+      const rest = await button.evaluate((el) => getComputedStyle(el).color);
+      await button.hover();
+      const hovered = await button.evaluate((el) => getComputedStyle(el).color);
+      assert.notEqual(hovered, rest, 'hover does not change the colour');
+      assert.equal(hovered, 'rgb(6, 89, 134)');
+    });
+  });
+
+  // The dark and high contrast themes keep the vendor's colours.
+  // Mutation: drop the theme selectors from the rule, so the dark blue is used on a dark background.
+  for (const [theme, colour] of [
+    ['dark', 'rgb(11, 165, 236)'],
+    ['highcontrast', 'rgb(124, 212, 253)'],
+  ]) {
+    test(`the ${theme} theme keeps the vendor's colour at ${phone390.name}`, { timeout: TEST_TIMEOUT }, async () => {
+      await onView(phone390, detail(), async (page) => {
+        await setTheme(page, theme);
+        const buttons = await page.evaluate(badgeContrasts, LINK_BUTTON);
+        assert.ok(buttons.length >= 4, 'no link-style buttons shown');
+        for (const b of buttons) assert.equal(b.color, colour);
+      });
+    });
+  }
+
+  // From 992px up the vendor's blue stays.
+  // Mutation: take the media query off the rule.
+  for (const viewport of [desktop992, desktop1440]) {
+    test(`it keeps the vendor's blue at ${viewport.name}`, { timeout: TEST_TIMEOUT }, async () => {
+      await onView(viewport, detail(), async (page) => {
+        await setTheme(page, 'light');
+        const buttons = await page.evaluate(badgeContrasts, LINK_BUTTON);
+        assert.ok(buttons.length >= 4, 'no link-style buttons shown');
+        for (const b of buttons) assert.equal(b.color, VENDOR_LINK_BLUE);
       });
     });
   }
