@@ -229,6 +229,13 @@
     min-height: 36px;
   }
 
+  /* The radio buttons and checkboxes of a form keep their drawn size; the line that holds each one is tall enough
+     that a 24px circle on the button stays inside its own line and does not touch the next. */
+  .radio-inline,
+  .checkbox-inline {
+    min-height: 32px;
+  }
+
   .form-control:not(table .form-control),
   select:not(table select),
   textarea:not(table textarea),
