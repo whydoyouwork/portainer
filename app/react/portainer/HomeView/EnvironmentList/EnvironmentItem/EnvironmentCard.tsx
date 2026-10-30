@@ -60,7 +60,7 @@ export function EnvironmentCard({
         params={dashboardRoute.params}
         data-cy={`environment-card-${environment.Name}`}
       >
-        <div className="flex min-w-0 flex-1 gap-3">
+        <div className="flex min-w-0 flex-1 gap-3 max-[991px]:min-w-[min(16rem,100%)]">
           <div className="flex items-center justify-center self-center rounded-lg bg-blue-9/10 p-2 pt-2">
             <EnvironmentIcon
               type={environment.Type}
