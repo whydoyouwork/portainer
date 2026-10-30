@@ -18,6 +18,7 @@ export function ContextHelp() {
         className={clsx(
           headerStyles.menuIcon,
           'icon-badge mr-1 cursor-pointer !p-2 text-lg',
+          'max-[991px]:-m-[5px] max-[991px]:border-[5px] max-[991px]:border-solid max-[991px]:border-transparent max-[991px]:![background-clip:padding-box]',
           'text-gray-8',
           'th-dark:text-gray-warm-7'
         )}

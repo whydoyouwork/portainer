@@ -23,7 +23,7 @@ export function HeaderContainer({ id, children }: PropsWithChildren<Props>) {
       >
         <div id="loadingbar-placeholder" />
         <div className="col-xs-12">
-          <div className="flex items-center justify-between [&_div]:truncate">
+          <div className="flex items-center justify-between [&_div]:truncate max-[991px]:[&_div]:overflow-visible max-[991px]:[&_div]:text-clip max-[991px]:[&_div]:whitespace-normal">
             {children}
           </div>
         </div>
