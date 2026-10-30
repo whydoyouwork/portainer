@@ -14,3 +14,12 @@
   gap: 10px;
   margin: 0 15px;
 }
+
+/* Phones: the panels stack. The second column's 300px minimum does not fit beside the wizard, and the page ran
+   off the screen. */
+@media only screen and (max-width: 767px) {
+  .wizard-wrapper {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-areas: none;
+  }
+}
