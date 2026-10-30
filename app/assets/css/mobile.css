@@ -187,4 +187,10 @@
   .sidebar [data-cy='portainerSidebar-versionNumber'] {
     min-height: 44px;
   }
+
+  /* The button that clears the current environment. */
+  .sidebar button[title='Clear environment'] {
+    width: 44px;
+    height: 44px;
+  }
 }
