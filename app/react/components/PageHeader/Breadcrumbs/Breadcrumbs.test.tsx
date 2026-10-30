@@ -1,4 +1,4 @@
-import { render, screen } from '@testing-library/react';
+import { render, screen, within } from '@testing-library/react';
 
 import { withTestRouter } from '@/react/test-utils/withRouter';
 
@@ -80,5 +80,46 @@ describe('Breadcrumbs', () => {
     renderBreadcrumbs([]);
 
     expect(screen.getByTestId('breadcrumb-home')).toBeInTheDocument();
+  });
+
+  it('should be a navigation landmark with a named home link', () => {
+    renderBreadcrumbs([{ label: 'Settings' }]);
+
+    const nav = screen.getByRole('navigation', { name: 'Breadcrumb' });
+    expect(within(nav).getByLabelText('Home')).toBe(
+      screen.getByTestId('breadcrumb-home')
+    );
+  });
+
+  it('should mark only the last crumb as the current page', () => {
+    renderBreadcrumbs([
+      { label: 'Settings', link: 'portainer.settings' },
+      { label: 'Environment Groups' },
+      'Production',
+    ]);
+
+    const nav = screen.getByRole('navigation', { name: 'Breadcrumb' });
+    const current = nav.querySelectorAll('[aria-current="page"]');
+    expect(current).toHaveLength(1);
+    expect(current[0]).toHaveTextContent('Production');
+  });
+
+  it('should mark a linked last crumb on the link itself', () => {
+    renderBreadcrumbs([{ label: 'Settings', link: 'portainer.settings' }]);
+
+    expect(screen.getByTestId('breadcrumb-Settings')).toHaveAttribute(
+      'aria-current',
+      'page'
+    );
+  });
+
+  it('should not mark a current page when there are no crumbs', () => {
+    renderBreadcrumbs([]);
+
+    expect(
+      screen
+        .getByRole('navigation', { name: 'Breadcrumb' })
+        .querySelector('[aria-current]')
+    ).toBeNull();
   });
 });
