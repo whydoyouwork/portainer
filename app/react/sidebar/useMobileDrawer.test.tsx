@@ -133,6 +133,37 @@ describe('useMobileDrawer', () => {
     );
   });
 
+  it('closes when a link is followed, including the link of the page you are on', () => {
+    mockPhone(true);
+    const root = buildPage();
+    renderDrawer(true, root);
+    // the hook closes the drawer when it mounts (the location "changed"); open it afterwards
+    act(() => sidebarStore.setState({ isOpen: true }));
+    const link = root.querySelector('a') as HTMLAnchorElement;
+    // the page you are on: the click is handled, but the location does not change
+    link.addEventListener('click', (event) => event.preventDefault());
+
+    act(() => {
+      link.click();
+    });
+
+    expect(sidebarStore.getState().isOpen).toBe(false);
+  });
+
+  it('stays open when something that is not a link is clicked', () => {
+    mockPhone(true);
+    const root = buildPage();
+    root.insertAdjacentHTML('beforeend', '<span id="label">Label</span>');
+    renderDrawer(true, root);
+    act(() => sidebarStore.setState({ isOpen: true }));
+
+    act(() => {
+      (document.getElementById('label') as HTMLElement).click();
+    });
+
+    expect(sidebarStore.getState().isOpen).toBe(true);
+  });
+
   it('does nothing at widths where the sidebar is not a drawer', () => {
     mockPhone(false);
     const root = buildPage();

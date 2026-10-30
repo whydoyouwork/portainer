@@ -5,6 +5,9 @@ import {
   set as setToStorage,
 } from '@/react/hooks/useLocalStorage';
 
+/** The id of the sidebar element, for the controls that open and close it. */
+export const sidebarId = 'sidebar';
+
 const storageKey = 'toolbar_toggle';
 const mobileWidth = 992;
 

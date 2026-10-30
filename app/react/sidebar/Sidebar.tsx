@@ -17,6 +17,8 @@ import { SidebarProvider, useSidebarState } from './useSidebarState';
 import { UpgradeBEBannerWrapper } from './UpgradeBEBanner';
 import { AppDeliverySidebar } from './AppDeliverySidebar';
 import { closeDrawer, useMobileDrawer } from './useMobileDrawer';
+import { CloseDrawerButton } from './CloseDrawerButton';
+import { sidebarId } from './sidebarStore';
 
 export function Sidebar() {
   return (
@@ -56,11 +58,13 @@ function InnerSidebar() {
       />
       <div
         ref={rootRef}
+        id={sidebarId}
         className={clsx(styles.root, 'sidebar flex flex-col')}
         role={isModal ? 'dialog' : undefined}
         aria-modal={isModal ? true : undefined}
         aria-label={isModal ? 'Main menu' : undefined}
       >
+        {isDrawer && <CloseDrawerButton />}
         <UpgradeBEBannerWrapper />
         <nav
           className={clsx(

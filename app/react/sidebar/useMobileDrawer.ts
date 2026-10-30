@@ -10,8 +10,12 @@ const toggleSelector = 'button[aria-label="Toggle Sidebar"]';
 const focusableSelector =
   'a[href], button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])';
 
+// an environment without media queries has no phone screen to serve
 function isDrawerLayout() {
-  return window.matchMedia(drawerMediaQuery).matches;
+  return (
+    typeof window.matchMedia === 'function' &&
+    window.matchMedia(drawerMediaQuery).matches
+  );
 }
 
 export function closeDrawer({ returnFocus = false } = {}) {
@@ -22,11 +26,18 @@ export function closeDrawer({ returnFocus = false } = {}) {
   }
 }
 
-/** True while the sidebar is laid out as an off-canvas drawer (phones). */
+/**
+ * True while the sidebar is laid out as an off-canvas drawer, that is on phones (below 768px).
+ * Also the way for a component to know it is on a phone-width screen.
+ */
 export function useIsDrawerLayout() {
   const [matches, setMatches] = useState(isDrawerLayout);
 
   useEffect(() => {
+    if (typeof window.matchMedia !== 'function') {
+      return undefined;
+    }
+
     const query = window.matchMedia(drawerMediaQuery);
     function onChange() {
       setMatches(query.matches);
@@ -42,7 +53,8 @@ export function useIsDrawerLayout() {
 
 /**
  * On phones the sidebar is a drawer and behaves as a modal dialog:
- * - closes after navigating, on Escape and on a tap outside, returning focus to its toggle
+ * - closes after a link is followed (including the link of the page you are on), on Escape and on a tap
+ *   outside, returning focus to its toggle
  * - moves focus into the drawer when it opens and keeps Tab inside it
  * - makes the page behind it inert and stops it scrolling
  * - is not focusable or readable while closed
@@ -135,10 +147,20 @@ export function useMobileDrawer(
       }
     }
 
+    // a link to the page you are already on does not change the location, so closing on a location
+    // change alone would leave the drawer open
+    function onClick(event: MouseEvent) {
+      if ((event.target as Element | null)?.closest('a[href]')) {
+        closeDrawer();
+      }
+    }
+
     document.addEventListener('keydown', onKeyDown);
+    root.addEventListener('click', onClick);
     return () => {
       window.cancelAnimationFrame(frame);
       document.removeEventListener('keydown', onKeyDown);
+      root.removeEventListener('click', onClick);
       page?.removeAttribute('inert');
       document.body.style.overflow = previousOverflow;
       // focus the opener when the drawer closes; the page was inert, so focus was parked inside it
