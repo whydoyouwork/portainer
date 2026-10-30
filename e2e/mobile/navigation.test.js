@@ -159,6 +159,72 @@ async function breadcrumbProblems(page) {
   });
 }
 
+// ---- the collapsed rail: a tap on a parent opens its sub-menu -------------------
+
+const RAIL_PARENT = '.sidebar button > a[data-cy$="-link"]';
+const FLYOUT = '.tippy-box a[href]';
+
+async function hashOf(page) {
+  return page.evaluate(() => location.hash);
+}
+
+async function flyoutLinks(page) {
+  return page.evaluate((selector) => [...document.querySelectorAll(selector)].filter((a) => a.getBoundingClientRect().width > 0).map((a) => a.getAttribute('href')), FLYOUT);
+}
+
+// On a touch screen the rail has no hover, so a tap on a rail item that has sub-items opens them (instead of
+// following the parent's link), they can be read, closed again, and choosing one goes there and closes them.
+async function railFlyoutProblems(page) {
+  const problems = [];
+  const parent = page.locator(RAIL_PARENT).first();
+  const startHash = await hashOf(page);
+
+  await parent.tap();
+  await page.waitForTimeout(400);
+  if ((await hashOf(page)) !== startHash) problems.push(`tapping a rail item with sub-items followed its link (${startHash} -> ${await hashOf(page)})`);
+  const opened = await flyoutLinks(page);
+  if (opened.length === 0) problems.push('tapping a rail item with sub-items did not show its sub-menu');
+  const state = await parent.evaluate((a) => ({ expanded: a.getAttribute('aria-expanded'), name: a.getAttribute('aria-label') }));
+  if (state.expanded !== 'true') problems.push(`the open sub-menu is not announced (aria-expanded is ${state.expanded})`);
+  if (!state.name) problems.push('the rail item has no accessible name');
+
+  // Escape closes it and focus goes back to the rail item
+  await page.keyboard.press('Escape');
+  await page.waitForTimeout(300);
+  if ((await flyoutLinks(page)).length !== 0) problems.push('Escape did not close the sub-menu');
+  const focusBack = await parent.evaluate((a) => document.activeElement === a);
+  if (!focusBack) problems.push('focus did not return to the rail item after Escape');
+  if ((await parent.getAttribute('aria-expanded')) !== 'false') problems.push('the closed sub-menu is still announced as expanded');
+
+  // a tap outside closes it
+  await parent.tap();
+  await page.waitForTimeout(300);
+  if ((await flyoutLinks(page)).length === 0) problems.push('the sub-menu did not open a second time');
+  await page.touchscreen.tap(600, 700);
+  await page.waitForTimeout(300);
+  if ((await flyoutLinks(page)).length !== 0) problems.push('a tap outside did not close the sub-menu');
+
+  // choosing a sub-item goes there and closes the sub-menu
+  await parent.tap();
+  await page.waitForTimeout(300);
+  const target = (await flyoutLinks(page))[0];
+  if (target) {
+    await page.locator(FLYOUT).first().tap();
+    await page.waitForTimeout(800);
+    if ((await hashOf(page)) !== target) problems.push(`choosing a sub-item did not go to it (${await hashOf(page)}, expected ${target})`);
+    if ((await flyoutLinks(page)).length !== 0) problems.push('the sub-menu stayed open after choosing a sub-item');
+  }
+  return problems;
+}
+
+// An item with no sub-items is unchanged: a tap goes straight to it.
+async function railLeafProblems(page) {
+  await page.locator('[data-cy=portainerSidebar-home]').first().tap();
+  await page.waitForTimeout(800);
+  const hash = await hashOf(page);
+  return /#!\/home/.test(hash) ? [] : [`tapping Home on the rail went to ${hash}`];
+}
+
 // ---- the tests --------------------------------------------------------------
 
 describe('sidebar drawer as a dialog (phones)', () => {
@@ -308,4 +374,41 @@ describe('the collapsed rail on tablets', () => {
       });
     });
   }
+});
+
+describe('the collapsed rail opens a sub-menu on tap (touch tablets)', () => {
+  for (const viewport of [tablet, tablet991]) {
+    test(`a tap opens, Escape and an outside tap close, a choice navigates at ${viewport.name}`, { timeout: TEST_TIMEOUT }, async () => {
+      await onView(viewport, CONTAINER, async (page) => {
+        assert.deepEqual(await railFlyoutProblems(page), []);
+      });
+    });
+
+    test(`an item without sub-items still goes straight there at ${viewport.name}`, { timeout: TEST_TIMEOUT }, async () => {
+      await onView(viewport, CONTAINER, async (page) => {
+        assert.deepEqual(await railLeafProblems(page), []);
+      });
+    });
+  }
+
+  // Planted fault: a tap that follows the parent's link, as the unchanged rail does.
+  test('planted fault: a tap that follows the parent link is reported', { timeout: TEST_TIMEOUT }, async () => {
+    await onView(tablet, CONTAINER, async (page) => {
+      await page.evaluate(() => {
+        window.addEventListener(
+          'click',
+          (event) => {
+            const link = event.target.closest && event.target.closest('a[data-cy$="-link"]');
+            if (link) location.hash = link.getAttribute('href');
+          },
+          true
+        );
+      });
+      const problems = await railFlyoutProblems(page);
+      assert.ok(
+        problems.some((p) => /followed its link/.test(p)),
+        `got: ${problems.join('; ')}`
+      );
+    });
+  });
 });
