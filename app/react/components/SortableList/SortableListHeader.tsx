@@ -52,7 +52,7 @@ export function SortableListHeader<TSortKey extends string>({
         groupOptions={groupOptions}
         dataCy={`${dataCy}-sort`}
       />
-      <div className="ml-auto flex items-center gap-2">
+      <div className="ml-auto flex items-center gap-2 max-md:w-full max-md:flex-wrap">
         {headerButtons}
         <SearchBar
           value={searchTerm}
@@ -60,6 +60,8 @@ export function SortableListHeader<TSortKey extends string>({
           onChange={onSearchChange}
           data-cy={`${dataCy}-search`}
           className={clsx(
+            // on a phone the search takes a line of its own, so its clear button does not squeeze the field
+            'max-md:w-full',
             'rounded-md border border-solid border-gray-4',
             'bg-white py-2 pl-9 pr-3 text-sm text-gray-10 placeholder-gray-6',
             'focus:border-blue-6 focus:outline-none',
