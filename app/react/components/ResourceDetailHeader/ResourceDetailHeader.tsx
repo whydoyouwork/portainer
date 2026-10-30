@@ -99,13 +99,13 @@ function HeaderInfo({
   description,
 }: HeaderInfoProps) {
   return (
-    <div className="flex min-w-0 flex-1 flex-col">
+    <div className="flex min-w-0 flex-1 flex-col max-md:min-w-[10rem]">
       {subtitleLabel && (
         <span className={clsx('text-xs font-medium', subtitleClassName)}>
           {subtitleLabel}
         </span>
       )}
-      <div className="flex items-center gap-2">
+      <div className="flex items-center gap-2 max-md:flex-wrap">
         <h2 className="m-0 text-lg font-bold">{title}</h2>
         {badge && <div className="flex flex-wrap gap-1">{badge}</div>}
       </div>
