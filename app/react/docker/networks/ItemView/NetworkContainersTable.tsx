@@ -46,60 +46,62 @@ export function NetworkContainersTable({
   return (
     <TableContainer>
       <TableTitle label="Containers in network" icon={Server} />
-      <DetailsTable
-        headers={tableHeaders}
-        dataCy="networkDetails-networkContainers"
-      >
-        {networkContainers.map((container) => (
-          <tr key={container.Id}>
-            <td>
-              <Link
-                to="docker.containers.container"
-                params={{
-                  id: container.Id,
-                  nodeName,
-                }}
-                title={container.Name}
-                data-cy={`networkDetails-containerName-${container.Name}`}
-              >
-                {container.Name}
-              </Link>
-            </td>
-            <td>{container.IPv4Address || '-'}</td>
-            <td>{container.IPv6Address || '-'}</td>
-            <td>{container.MacAddress || '-'}</td>
-            <td>
-              <Authorized authorizations="DockerNetworkDisconnect">
-                <Button
-                  data-cy={`networkDetails-disconnect${container.Name}`}
-                  size="xsmall"
-                  color="dangerlight"
-                  onClick={() => {
-                    if (container.Id) {
-                      disconnectContainer.mutate(
-                        {
-                          containerId: container.Id,
-                          nodeName,
-                        },
-                        {
-                          onSuccess: () =>
-                            notifySuccess(
-                              'Container successfully disconnected',
-                              networkId
-                            ),
-                        }
-                      );
-                    }
+      <div className="max-md:overflow-x-auto">
+        <DetailsTable
+          headers={tableHeaders}
+          dataCy="networkDetails-networkContainers"
+        >
+          {networkContainers.map((container) => (
+            <tr key={container.Id}>
+              <td>
+                <Link
+                  to="docker.containers.container"
+                  params={{
+                    id: container.Id,
+                    nodeName,
                   }}
+                  title={container.Name}
+                  data-cy={`networkDetails-containerName-${container.Name}`}
                 >
-                  <Icon icon={Trash2} class-name="icon-secondary icon-md" />
-                  Leave Network
-                </Button>
-              </Authorized>
-            </td>
-          </tr>
-        ))}
-      </DetailsTable>
+                  {container.Name}
+                </Link>
+              </td>
+              <td>{container.IPv4Address || '-'}</td>
+              <td>{container.IPv6Address || '-'}</td>
+              <td>{container.MacAddress || '-'}</td>
+              <td>
+                <Authorized authorizations="DockerNetworkDisconnect">
+                  <Button
+                    data-cy={`networkDetails-disconnect${container.Name}`}
+                    size="xsmall"
+                    color="dangerlight"
+                    onClick={() => {
+                      if (container.Id) {
+                        disconnectContainer.mutate(
+                          {
+                            containerId: container.Id,
+                            nodeName,
+                          },
+                          {
+                            onSuccess: () =>
+                              notifySuccess(
+                                'Container successfully disconnected',
+                                networkId
+                              ),
+                          }
+                        );
+                      }
+                    }}
+                  >
+                    <Icon icon={Trash2} class-name="icon-secondary icon-md" />
+                    Leave Network
+                  </Button>
+                </Authorized>
+              </td>
+            </tr>
+          ))}
+        </DetailsTable>
+      </div>
     </TableContainer>
   );
 }

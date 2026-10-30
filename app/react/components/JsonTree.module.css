@@ -23,3 +23,16 @@
 .json-tree .leaf-value {
   color: var(--text-json-tree-leaf-color);
 }
+
+/* Phones and tablets: long values wrap inside the tree instead of pushing the page sideways;
+   anything that still cannot wrap scrolls inside the tree. */
+@media only screen and (max-width: 991px) {
+  .json-tree {
+    overflow-x: auto;
+  }
+
+  .json-tree .leaf-value {
+    overflow-wrap: anywhere;
+    white-space: pre-wrap;
+  }
+}

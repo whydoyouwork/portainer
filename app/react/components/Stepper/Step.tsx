@@ -145,7 +145,7 @@ function getBadgeClasses({ isCompleted }: Pick<StepState, 'isCompleted'>) {
 }
 
 function getConnectorClasses({ isCompleted }: Pick<StepState, 'isCompleted'>) {
-  const base = 'h-0.5 w-8 transition-colors';
+  const base = 'h-0.5 w-8 transition-colors max-md:hidden';
 
   if (isCompleted) {
     return clsx(

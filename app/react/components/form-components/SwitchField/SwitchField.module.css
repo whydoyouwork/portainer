@@ -3,3 +3,11 @@
   align-items: center;
   margin: 0;
 }
+
+/* Phones: the label, switch and any feature badge wrap onto another line rather than running past the card. */
+@media only screen and (max-width: 767px) {
+  .root {
+    flex-wrap: wrap;
+    row-gap: 4px;
+  }
+}
