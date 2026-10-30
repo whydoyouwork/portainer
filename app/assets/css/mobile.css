@@ -97,13 +97,12 @@
     padding: 10px 10px 0;
   }
 
-  /* ...and its text and outline use the next darker grey of the palette: the vendor's gray-6 is 2.5:1
-     on a light background, under the 4.5:1 that text needs. The dark and high contrast themes sit on a
-     dark background, where gray-6 is already clear, and a hovered badge keeps its blue. */
-  .be-indicator-container > .limited-be-link a.be-indicator:not(:hover) {
+  /* Every "Business Feature" badge (the locked panel's and the one beside a locked switch) uses the next darker
+     grey of the palette for its text and outline: the vendor's gray-6 is 2.5:1 on a light background, under the
+     4.5:1 that text needs. The dark and high contrast themes sit on a dark background, where the vendor's colours
+     are already clear, and a hovered badge keeps its blue. */
+  html:not([theme='dark']):not([theme='highcontrast']) .be-indicator:not(:hover) {
     @apply border-gray-7 text-gray-7;
-    @apply th-dark:border-gray-6 th-dark:text-gray-6;
-    @apply th-highcontrast:border-gray-6 th-highcontrast:text-gray-6;
   }
 
   /* The version in the drawer's footer is a text-sized button; it gets a target of at least 24px. */
