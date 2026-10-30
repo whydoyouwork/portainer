@@ -191,16 +191,16 @@ describe('findOverlaps: what is not a collision', () => {
 });
 
 describe('findSmallTargets', () => {
-  test('passes: a 44px button', async () => {
-    assert.deepEqual(await run(measure.findSmallTargets, '<button style="width:60px;height:44px">Go</button>', 44), []);
+  test('passes: a 24px button', async () => {
+    assert.deepEqual(await run(measure.findSmallTargets, '<button style="width:60px;height:24px">Go</button>', 24), []);
   });
 
-  test('fails: a 30px button', async () => {
-    const violations = await run(measure.findSmallTargets, '<button style="width:60px;height:30px">Go</button>', 44);
+  test('fails: a 20px button', async () => {
+    const violations = await run(measure.findSmallTargets, '<button style="width:60px;height:20px">Go</button>', 24);
     assert.equal(violations.length, 1);
   });
 
   test('passes: a small button inside a table row is exempt', async () => {
-    assert.deepEqual(await run(measure.findSmallTargets, '<table><tr><td><button style="height:20px">x</button></td></tr></table>', 44), []);
+    assert.deepEqual(await run(measure.findSmallTargets, '<table><tr><td><button style="height:20px">x</button></td></tr></table>', 24), []);
   });
 });

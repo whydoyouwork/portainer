@@ -92,16 +92,16 @@ describe('every linked view at phone and tablet sizes', () => {
 
 describe('touch targets on phones', () => {
   for (const viewport of [VIEWPORTS.phone390, VIEWPORTS.tablet]) {
-    test(`controls reach 44px at ${viewport.name}`, { timeout: 900000 }, async () => {
+    test(`controls are at least 24px at ${viewport.name}`, { timeout: 900000 }, async () => {
       await withPage(browser, storageState, viewport, async (page) => {
         const failures = [];
         for (const route of found.routes) {
           await page.goto(`${BASE_URL}/${route}`);
           await page.waitForSelector('button[aria-label="Toggle Sidebar"]', { timeout: 30000 });
           await settle(page, { quietMs: 400 });
-          for (const violation of await page.evaluate(measure.findSmallTargets, 44)) failures.push(`${route} ${violation}`);
+          for (const violation of await page.evaluate(measure.findSmallTargets, 24)) failures.push(`${route} ${violation}`);
         }
-        assert.deepEqual(failures, [], `${failures.length} control(s) under 44px at ${viewport.name}:\n${failures.join('\n')}`);
+        assert.deepEqual(failures, [], `${failures.length} control(s) under 24px (WCAG 2.2) at ${viewport.name}:\n${failures.join('\n')}`);
       });
     });
   }

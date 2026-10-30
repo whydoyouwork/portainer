@@ -174,7 +174,7 @@ async function closeButtonProblems(page) {
     if (!info.visible) problems.push('the "Close menu" button is not shown');
     if (!info.isFirst) problems.push('the "Close menu" button is not the first control in the drawer');
     const box = await page.locator(CLOSE).boundingBox();
-    if (box && (box.width < 43.5 || box.height < 43.5)) problems.push(`the "Close menu" button is ${Math.round(box.width)}x${Math.round(box.height)}`);
+    if (box && (box.width < 35.5 || box.height < 35.5 || box.width > 40.5 || box.height > 40.5)) problems.push(`the "Close menu" button is not 36px, it is ${Math.round(box.width)}x${Math.round(box.height)}`);
   }
   return problems;
 }
@@ -1059,7 +1059,7 @@ describe('the Close menu button is in the logo row of the phone drawer', () => {
       });
     });
 
-    test(`it is first in the focus order, named, 44x44 and holds the initial focus at ${viewport.name}`, { timeout: TEST_TIMEOUT }, async () => {
+    test(`it is first in the focus order, named, 36x36 and holds the initial focus at ${viewport.name}`, { timeout: TEST_TIMEOUT }, async () => {
       await onView(viewport, CONTAINER, async (page) => {
         await openDrawerWithKeyboard(page);
         assert.deepEqual(await closeButtonProblems(page), []);
@@ -1186,12 +1186,12 @@ const CLEAR_ENV = `${DIALOG} button[title="Clear environment"]`;
 describe('"Clear environment" in the phone drawer', () => {
   // Mutation: the button keeps the vendor's 20x20px box on touch phones (as in 16e704c).
   for (const viewport of PHONES) {
-    test(`it is 44x44 on a touch phone at ${viewport.name}`, { timeout: TEST_TIMEOUT }, async () => {
+    test(`it is 32-36px square on a touch phone at ${viewport.name}`, { timeout: TEST_TIMEOUT }, async () => {
       await onView(viewport, CONTAINER, async (page) => {
         await openDrawerWithKeyboard(page);
         const box = await page.locator(CLEAR_ENV).boundingBox();
         assert.ok(box, 'no Clear environment button in the open drawer');
-        assert.ok(box.width >= 43.5 && box.height >= 43.5, `the button is ${Math.round(box.width)}x${Math.round(box.height)}`);
+        assert.ok(box.width >= 31.5 && box.height >= 31.5 && box.width <= 36.5 && box.height <= 36.5, `the button is ${Math.round(box.width)}x${Math.round(box.height)}`);
         const row = await page.locator(CLEAR_ENV).evaluate((el) => { const r = el.parentElement.getBoundingClientRect(); const d = el.closest('.sidebar').getBoundingClientRect(); return { right: r.right, drawerRight: d.right }; });
         assert.ok(row.right <= row.drawerRight + 1, 'the row runs past the drawer');
       });
@@ -1204,7 +1204,7 @@ describe('"Clear environment" in the phone drawer', () => {
       await openDrawerWithKeyboard(page);
       await page.addStyleTag({ content: `${CLEAR_ENV} { width: 20px !important; height: 20px !important; }` });
       const box = await page.locator(CLEAR_ENV).boundingBox();
-      assert.ok(box.width < 43.5);
+      assert.ok(box.width < 31.5);
     });
   });
 

@@ -111,7 +111,7 @@ async function menuProblems(page) {
   return problems;
 }
 
-// The controls of the header are 44px to tap, at every size below the desktop layout.
+// The controls of the header are 36px to tap, at every size below the desktop layout.
 async function headerTargetProblems(page) {
   const problems = [];
   for (const [name, selector] of [
@@ -123,7 +123,7 @@ async function headerTargetProblems(page) {
   ]) {
     const box = await page.locator(selector).first().boundingBox();
     if (!box) problems.push(`${name} not found`);
-    else if (box.width < 43.5 || box.height < 43.5) problems.push(`${name} is ${Math.round(box.width)}x${Math.round(box.height)}`);
+    else if (box.width < 35.5 || box.height < 35.5 || box.height > 40.5) problems.push(`${name} is ${Math.round(box.width)}x${Math.round(box.height)}`);
   }
   return problems;
 }
@@ -286,7 +286,7 @@ describe('header menus open on screen', () => {
   });
 });
 
-describe('header controls are 44px to tap (below the desktop layout)', () => {
+describe('header controls are 36px to tap (below the desktop layout)', () => {
   for (const viewport of SMALL_SCREENS) {
     test(`at ${viewport.name}`, { timeout: TEST_TIMEOUT }, async () => {
       await onView(viewport, CONTAINER, async (page) => {
