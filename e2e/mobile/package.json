@@ -1,0 +1,14 @@
+{
+  "name": "portainer-mobile-e2e",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Browser checks for the phone and tablet layout. Separate from the application's own build, lint and unit tests.",
+  "license": "Zlib",
+  "scripts": {
+    "test": "node --test --test-concurrency=1 \"./*.test.js\"",
+    "capture-baselines": "node capture-baselines.js"
+  },
+  "devDependencies": {
+    "playwright": "1.63.0"
+  }
+}
