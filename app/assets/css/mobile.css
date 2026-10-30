@@ -105,6 +105,13 @@
     @apply th-dark:border-gray-6 th-dark:text-gray-6;
     @apply th-highcontrast:border-gray-6 th-highcontrast:text-gray-6;
   }
+
+  /* The version in the drawer's footer is a text-sized button; it gets a target of at least 24px. */
+  .sidebar [data-cy='portainerSidebar-versionNumber'] {
+    display: inline-flex;
+    align-items: center;
+    min-height: 24px;
+  }
 }
 
 /* Touch screens below 992px: controls reach the 44px touch size, and fields use 16px text so that
@@ -161,6 +168,10 @@
   }
 
   .sidebar .min-h-8 {
+    min-height: 44px;
+  }
+
+  .sidebar [data-cy='portainerSidebar-versionNumber'] {
     min-height: 44px;
   }
 }
