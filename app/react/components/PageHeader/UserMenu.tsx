@@ -38,7 +38,7 @@ export function UserMenu() {
         >
           <UserIcon className="lucide" />
         </div>
-        {user && <span>{user.Username}</span>}
+        {user && <span className="max-md:hidden">{user.Username}</span>}
         <ChevronDown className={styles.arrowDown} />
       </MenuButton>
 
