@@ -62,3 +62,40 @@
 .nav-list-container::-webkit-scrollbar-track {
   @apply !bg-transparent;
 }
+
+/* Phones: the sidebar becomes an off-canvas drawer opened from the header's toggle button.
+   Everything below is scoped to widths under 768px, so tablet and desktop layouts are unchanged. */
+.backdrop {
+  display: none;
+}
+
+@media only screen and (max-width: 767px) {
+  :global(#page-wrapper),
+  :global(#page-wrapper.open) {
+    padding-left: 0;
+  }
+
+  .root,
+  :global(#page-wrapper.open) .root {
+    width: min(var(--sidebar-width), 85vw);
+    z-index: 1035;
+  }
+
+  .root {
+    transform: translateX(-100%);
+    visibility: hidden;
+  }
+
+  :global(#page-wrapper.open) .root {
+    transform: none;
+    visibility: visible;
+  }
+
+  :global(#page-wrapper.open) .backdrop {
+    display: block;
+    position: fixed;
+    inset: 0;
+    z-index: 1034;
+    background-color: rgb(0 0 0 / 40%);
+  }
+}
