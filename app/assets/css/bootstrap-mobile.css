@@ -5,7 +5,8 @@
  * and the shared ones for the application's own shell are in mobile.css.
  *
  * Every rule here sits inside a max-width media query, so widths of 992px and up are unchanged.
- * The rules rearrange and tighten what is already on the page; they do not change colours or type.
+ * The rules rearrange and tighten what is already on the page; they do not change type. The only colours they
+ * change are the blue of links in the light theme, which is too pale for text.
  */
 
 /* Tablets and phones (below 992px) */
@@ -41,6 +42,25 @@
      themes keep the vendor's colours. */
   html:not([theme='dark']):not([theme='highcontrast']) .btn.btn-link:not(:disabled, .disabled) {
     @apply text-blue-9 hover:text-blue-10;
+  }
+
+  /* ---- Text links ---- */
+
+  /* The same blue is the colour of a text link (a container's or an image's name, the Home and dashboard links),
+     4.0:1 on white, 3.9:1 on the Home and dashboard panels. In the light theme a text link uses the next darker
+     blue of the palette, and its hover the one after, as the link-style buttons do. `where` holds the selectors
+     at the specificity of the vendor's own `a` rules, so they only reach a link that no other rule colours: a
+     button, a tab, a breadcrumb, a menu item, a link in the drawer or one with a colour class keeps its colour.
+     The dark and high contrast themes keep the vendor's colours. */
+  :where(html:not([theme='dark']):not([theme='highcontrast'])) a,
+  :where(html:not([theme='dark']):not([theme='highcontrast'])) a.hyperlink {
+    @apply text-blue-9 hover:text-blue-10;
+  }
+
+  /* The link of a help text beside a web editor is Bootstrap's #337ab7, 4.1:1 on its grey panel. Its hover
+     (#23527c) is dark enough and stays. */
+  :where(html:not([theme='dark']):not([theme='highcontrast'])) .web-editor a {
+    @apply text-blue-9;
   }
 }
 
