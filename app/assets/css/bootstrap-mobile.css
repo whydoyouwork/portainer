@@ -24,13 +24,20 @@
      the real checkbox of the table's selection boxes behind a drawn one, so a keyboard user cannot see where
      focus is. They show Bootstrap's own ring (the one its links and fields use), inside the button so that
      nothing clips it. `.btn` removes its outline with !important, so this has to as well. A button that sets its
-     own ring (a `focus-visible:` utility class) keeps it. */
+     own ring (a `focus-visible:` utility class) keeps it.
+
+     Every ring here is written as Bootstrap writes it: a plain outline first, then the WebKit ring. Chrome and
+     Safari read the second and draw their own ring; a browser that does not know `-webkit-focus-ring-color`
+     (Firefox) drops that declaration and keeps the first. */
   .btn.btn-none:not([class*='focus-visible:']):focus-visible {
+    outline: 2px solid currentColor !important;
     outline: -webkit-focus-ring-color auto 5px !important;
     outline-offset: -2px !important;
   }
 
+  /* The drawn box has black text colour of its own, so its plain ring takes the colour of the theme's text. */
   .md-checkbox input[type='checkbox']:focus-visible + label:before {
+    outline: 2px solid var(--text-main-color, currentColor);
     outline: -webkit-focus-ring-color auto 5px;
     outline-offset: 1px;
   }

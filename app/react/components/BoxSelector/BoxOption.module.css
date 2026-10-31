@@ -51,6 +51,7 @@
    focus. The ring sits inside the card's edge, where nothing clips it. */
 @media only screen and (max-width: 991px) {
   .root input:focus-visible + label {
+    outline: 2px solid currentColor;
     outline: -webkit-focus-ring-color auto 5px;
     outline-offset: -2px;
   }

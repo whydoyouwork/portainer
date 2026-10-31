@@ -375,6 +375,7 @@
   /* The search field has no outline and the box around it does not change when the field has focus: a keyboard
      user gets Bootstrap's own ring inside the field. */
   .searchBar .searchInput:focus-visible {
+    outline: 2px solid currentColor;
     outline: -webkit-focus-ring-color auto 5px;
     outline-offset: -2px;
   }
