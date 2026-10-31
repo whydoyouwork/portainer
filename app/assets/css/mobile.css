@@ -97,6 +97,28 @@
   }
 }
 
+/* Narrowest phones (320px to 329px) */
+@media only screen and (max-width: 329px) {
+  /* The restart policy of a container sets its name, its select and its Update button in one row, which needs more
+     room than a 320px card has beside the label column: the table spilled out of its card, and a reader who widens
+     the text spacing (WCAG 1.4.12) made the page scroll sideways. The button wraps under the select instead, which
+     also gives the select the width it needs to show its value. `.table > tbody > tr` sets a height of 50px. */
+  table[data-cy='container-restart-policy-table'],
+  table[data-cy='container-restart-policy-table'] > tbody {
+    display: block;
+  }
+
+  table[data-cy='container-restart-policy-table'] > tbody > tr {
+    display: flex;
+    flex-wrap: wrap;
+    height: auto;
+  }
+
+  table[data-cy='container-restart-policy-table'] > tbody > tr > td:nth-child(2) {
+    flex: 1 1 4rem;
+  }
+}
+
 /* Touch screens below 992px: the header's icon buttons, and the title row of a form section. The sizes of the
    Bootstrap controls are in bootstrap-mobile.css. */
 @media only screen and (max-width: 991px) and (pointer: coarse) {
