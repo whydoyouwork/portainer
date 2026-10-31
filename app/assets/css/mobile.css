@@ -97,25 +97,34 @@
   }
 }
 
-/* Narrowest phones (320px to 329px) */
-@media only screen and (max-width: 329px) {
-  /* The restart policy of a container sets its name, its select and its Update button in one row, which needs more
-     room than a 320px card has beside the label column: the table spilled out of its card, and a reader who widens
-     the text spacing (WCAG 1.4.12) made the page scroll sideways. The button wraps under the select instead, which
-     also gives the select the width it needs to show its value. `.table > tbody > tr` sets a height of 50px. */
+/* Phones narrower than 600px */
+@media only screen and (max-width: 599px) {
+  /* The restart policy of a container sets its name, its select and its Update button in one row, and "On Failure"
+     adds a row with a number field. That row has the room to show every option whole from 470px wide, and from 520px
+     for a reader who widens the text spacing (WCAG 1.4.12). Narrower, the select was squeezed to its arrow,
+     "Maximum Retry Count" broke inside its words and the details table spilled out of its card. Each cell of the form
+     takes a line of its own instead, without the frames of the table, which would only take room from the select: it
+     then shows its longest value ("Unless Stopped") and the field its number. The rules go up to 599px so that a
+     larger system font, which needs more room, does not bring the squeeze back. `.table > tbody > tr` sets a height
+     of 50px. */
   table[data-cy='container-restart-policy-table'],
-  table[data-cy='container-restart-policy-table'] > tbody {
+  table[data-cy='container-restart-policy-table'] > tbody,
+  table[data-cy='container-restart-policy-table'] > tbody > tr,
+  table[data-cy='container-restart-policy-table'] > tbody > tr > td {
     display: block;
   }
 
+  table[data-cy='container-restart-policy-table'] {
+    border: 0;
+  }
+
   table[data-cy='container-restart-policy-table'] > tbody > tr {
-    display: flex;
-    flex-wrap: wrap;
     height: auto;
   }
 
-  table[data-cy='container-restart-policy-table'] > tbody > tr > td:nth-child(2) {
-    flex: 1 1 4rem;
+  table[data-cy='container-restart-policy-table'] > tbody > tr > td {
+    border: 0;
+    padding: 3px 0;
   }
 }
 
