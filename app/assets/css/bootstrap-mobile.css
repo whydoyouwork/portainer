@@ -39,8 +39,10 @@
 
   /* The vendor's link blue (blue-8) is 4.0:1 on white, under the 4.5:1 that text needs: in the light theme the
      buttons use the next darker blue of the palette, and their hover the one after. The dark and high contrast
-     themes keep the vendor's colours. */
-  html:not([theme='dark']):not([theme='highcontrast']) .btn.btn-link:not(:disabled, .disabled) {
+     themes keep the vendor's colours. `where` holds the theme condition at no specificity, so the rule only
+     reaches a button that no other rule colours: the dismiss button of the news panel, a link-style button on a
+     dark panel, keeps its pale text (the darker blue is 2.3:1 there). */
+  :where(html:not([theme='dark']):not([theme='highcontrast'])) .btn.btn-link:not(:disabled, .disabled) {
     @apply text-blue-9 hover:text-blue-10;
   }
 
