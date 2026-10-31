@@ -15,6 +15,11 @@ const BASE_URL = targetURL();
 const TEST_TIMEOUT = 90000;
 const CONTAINERS = '#!/1/docker/containers';
 
+// The restart policy of a container (a small table of name, select and Update button), and the vendor's table layout of it: what
+// the page has without the rules of mobile.css that stack its cells below 600px.
+const RESTART_TABLE = "table[data-cy='container-restart-policy-table']";
+const VENDOR_RESTART_LAYOUT = `:root:root:root body ${RESTART_TABLE} { display: table !important; border: 1px solid #ddd !important } :root:root:root body ${RESTART_TABLE} > tbody { display: table-row-group !important } :root:root:root body ${RESTART_TABLE} > tbody > tr { display: table-row !important; height: 50px !important } :root:root:root body ${RESTART_TABLE} > tbody > tr > td { display: table-cell !important; padding: 5px !important; border: 1px solid #ddd !important }`;
+
 let browser;
 let storageState;
 let detailsHash;
@@ -370,7 +375,7 @@ describe('a key/value table stays inside its card on the narrowest phones', () =
   test('planted fault: a table that spills out of its card is reported', { timeout: TEST_TIMEOUT }, async () => {
     await onDetails(phone320, async (page) => {
       await page.addStyleTag({
-        content: `:root:root:root body table[data-cy='container-restart-policy-table'] { display: table !important } :root:root:root body table[data-cy='container-restart-policy-table'] > tbody { display: table-row-group !important } :root:root:root body table[data-cy='container-restart-policy-table'] > tbody > tr { display: table-row !important; height: 50px !important }`,
+        content: VENDOR_RESTART_LAYOUT,
       });
       const problems = await page.evaluate(measureTablesPastCards);
       assert.equal(problems.length, 1, `got: ${problems.join('; ')}`);
@@ -405,7 +410,7 @@ describe('the page does not scroll sideways when the text spacing is widened', (
   test('planted fault: a restart policy row that cannot wrap is reported at 320px', { timeout: TEST_TIMEOUT }, async () => {
     await onDetails(phone320, async (page) => {
       await page.addStyleTag({
-        content: `:root:root:root body table[data-cy='container-restart-policy-table'] { display: table !important } :root:root:root body table[data-cy='container-restart-policy-table'] > tbody { display: table-row-group !important } :root:root:root body table[data-cy='container-restart-policy-table'] > tbody > tr { display: table-row !important; height: 50px !important }`,
+        content: VENDOR_RESTART_LAYOUT,
       });
       await page.addStyleTag({ content: TEXT_SPACING });
       await page.waitForTimeout(350);
@@ -577,4 +582,297 @@ describe('the console radio buttons of the new container form', () => {
       assert.ok(m.secondLabelHeight < 30, `a line is ${m.secondLabelHeight}px tall`);
     });
   });
+});
+
+// ---- the restart policy form of a container on a phone ---------------------------------------------------------------
+
+// The restart policy is a small table (name, select, Update button; "On Failure" adds a row with a number field) inside
+// the value cell of the container's details table. Its one row shows every option whole from 470px wide, and from 520px
+// with the text spacing widened. Narrower, the select was squeezed to its arrow, the labels were broken inside their
+// words and the details table spilled out of its card. Below 600px each cell has a line of its own.
+
+const phoneAt = (width) => ({ name: `phone-${width}x740`, width, height: 740, mobile: true });
+const RESTART_SELECT = '[data-cy="container-restart-policy-select"]';
+const RESTART_RETRIES = '[data-cy="container-restart-max-retry-input"]';
+const RESTART_OPTIONS = ['None', 'On Failure', 'Always', 'Unless Stopped'];
+const RESTART_WIDTHS = [320, 330, 344, 359, 390, 429, 480, 599].map(phoneAt);
+
+function onRestartPolicy(viewport, fn, { spacing = false } = {}) {
+  return onDetails(viewport, async (page) => {
+    await page.waitForSelector(RESTART_SELECT);
+    if (spacing) {
+      await page.addStyleTag({ content: TEXT_SPACING });
+      await page.waitForTimeout(350);
+    }
+    return fn(page);
+  });
+}
+
+// What a select needs to show a value is what the browser itself gives a select that holds only that option: its text,
+// its padding and its arrow. The text of a number field needs its own width and the field's padding and border.
+function measureRestartForm() {
+  const table = document.querySelector("table[data-cy='container-restart-policy-table']");
+  const select = table.querySelector('select');
+  const retries = table.querySelector('[data-cy="container-restart-max-retry-input"]');
+  const selectedText = select.options[select.selectedIndex].text;
+  const probe = select.cloneNode(false);
+  probe.removeAttribute('data-cy');
+  for (const [name, value] of [
+    ['position', 'absolute'],
+    ['visibility', 'hidden'],
+    ['left', '0'],
+    ['top', '0'],
+    ['display', 'inline-block'],
+    ['width', 'auto'],
+    ['min-width', '0'],
+    ['max-width', 'none'],
+  ]) {
+    probe.style.setProperty(name, value, 'important');
+  }
+  const option = document.createElement('option');
+  option.textContent = selectedText;
+  probe.appendChild(option);
+  select.parentNode.appendChild(probe);
+  const selectNeeds = probe.getBoundingClientRect().width;
+  probe.remove();
+  let field = null;
+  if (retries) {
+    const style = getComputedStyle(retries);
+    const canvas = document.createElement('canvas').getContext('2d');
+    canvas.font = `${style.fontWeight} ${style.fontSize} ${style.fontFamily}`;
+    const text = String(retries.value);
+    const letterSpacing = parseFloat(style.letterSpacing) || 0;
+    field = {
+      width: retries.getBoundingClientRect().width,
+      right: retries.getBoundingClientRect().right,
+      needs:
+        canvas.measureText(text).width +
+        letterSpacing * text.length +
+        ['paddingLeft', 'paddingRight', 'borderLeftWidth', 'borderRightWidth'].reduce((sum, key) => sum + parseFloat(style[key]), 0),
+    };
+  }
+  const rect = select.getBoundingClientRect();
+  return { selected: selectedText, select: { width: rect.width, right: rect.right, needs: selectNeeds }, field, window: document.documentElement.clientWidth };
+}
+
+// The words of the label cells of the restart policy table (the first cell of each row) that are set on more than one line.
+function measureRestartLabels() {
+  const cells = [...document.querySelectorAll("table[data-cy='container-restart-policy-table'] > tbody > tr > td:first-child")].filter((cell) => cell.getClientRects().length > 0);
+  const broken = [];
+  for (const cell of cells) {
+    const walker = document.createTreeWalker(cell, NodeFilter.SHOW_TEXT);
+    for (let node = walker.nextNode(); node; node = walker.nextNode()) {
+      for (const match of node.textContent.matchAll(/\S+/g)) {
+        const range = document.createRange();
+        range.setStart(node, match.index);
+        range.setEnd(node, match.index + match[0].length);
+        const lines = new Set([...range.getClientRects()].filter((r) => r.width > 0).map((r) => Math.round(r.top)));
+        if (lines.size > 1) broken.push(`"${match[0]}" is cut over ${lines.size} lines in a cell ${Math.round(cell.getBoundingClientRect().width)}px wide`);
+      }
+    }
+  }
+  return { cells: cells.length, broken };
+}
+
+// How far the container's details table reaches past the card around it (the table is laid out full width, over the card's padding).
+function measureDetailsTable() {
+  const table = document.querySelector('[data-cy="container-details-table"]');
+  if (!table) return null;
+  const box = table.getBoundingClientRect();
+  const card = table.closest('.widget').getBoundingClientRect();
+  return { right: Math.max(0, box.right - card.right), left: Math.max(0, card.left - box.left), page: document.documentElement.scrollWidth - document.documentElement.clientWidth };
+}
+
+// The select, as its problems: the selected value is cut when the select is narrower than what the browser gives it for that text.
+async function restartSelectProblems(page, options = RESTART_OPTIONS) {
+  const problems = [];
+  for (const label of options) {
+    await page.selectOption(RESTART_SELECT, { label });
+    const m = await page.evaluate(measureRestartForm);
+    if (m.select.needs < 30) problems.push(`"${label}": the measurement found no text (${m.select.needs}px)`);
+    else if (m.select.width < m.select.needs - 0.5) problems.push(`"${label}" needs ${Math.round(m.select.needs)}px and the select is ${Math.round(m.select.width)}px wide`);
+    if (m.select.right > m.window + 1) problems.push(`"${label}": the select ends at ${Math.round(m.select.right)}px in a ${m.window}px window`);
+  }
+  return problems;
+}
+
+async function restartFieldProblems(page) {
+  await page.selectOption(RESTART_SELECT, { label: 'On Failure' });
+  await page.waitForSelector(RESTART_RETRIES);
+  const problems = [];
+  // The count as it is saved (0 here), and a three digit count typed in (nothing is submitted: Update is never pressed).
+  for (const value of [null, '100']) {
+    if (value !== null) await page.fill(RESTART_RETRIES, value);
+    const m = await page.evaluate(measureRestartForm);
+    if (m.field.width < m.field.needs)
+      problems.push(`the retry count "${value ?? 'as saved'}" needs ${Math.round(m.field.needs)}px and the field is ${Math.round(m.field.width)}px wide`);
+    if (m.field.right > m.window + 1) problems.push(`the retry field ends at ${Math.round(m.field.right)}px in a ${m.window}px window`);
+  }
+  return problems;
+}
+
+async function restartLabelProblems(page) {
+  await page.selectOption(RESTART_SELECT, { label: 'On Failure' });
+  await page.waitForSelector(RESTART_RETRIES);
+  const m = await page.evaluate(measureRestartLabels);
+  return m.cells < 2 ? [`found only ${m.cells} label cells to measure`, ...m.broken] : m.broken;
+}
+
+describe('the restart policy select shows the whole selected value on phones', () => {
+  // Mutation: take the restart policy rules out of mobile.css (the build before them): the select is 26-41px wide at 330-359px,
+  // 80px at 320px, and 84px up to 599px, and "On Failure" and "Unless Stopped" are cut. Keep the rules but stop them at 329px
+  // (the width the earlier version of the rules reached): the select is squeezed again from 330px. Keep the frames and the
+  // padding of the table's cells: "Unless Stopped" is 10px short at 320px.
+  for (const viewport of RESTART_WIDTHS) {
+    test(`all four options at ${viewport.name}`, { timeout: TEST_TIMEOUT }, async () => {
+      await onRestartPolicy(viewport, async (page) => {
+        assert.deepEqual(await restartSelectProblems(page), []);
+      });
+    });
+
+    // With the text spacing of WCAG 1.4.12 widened, "Unless Stopped" needs 168px: the card has 148px at 320px and 158px at
+    // 330px, so that one value is cut there (the other three options and every width from 340px are whole).
+    test(`all four options at ${viewport.name} with the text spacing widened`, { timeout: TEST_TIMEOUT }, async () => {
+      await onRestartPolicy(
+        viewport,
+        async (page) => {
+          const clipped = viewport.width < 340 ? ['Unless Stopped'] : [];
+          assert.deepEqual(
+            await restartSelectProblems(
+              page,
+              RESTART_OPTIONS.filter((option) => !clipped.includes(option))
+            ),
+            []
+          );
+        },
+        { spacing: true }
+      );
+    });
+  }
+
+  // Planted fault: the select squeezed to 41px, as the vendor's one-row table does at 359px.
+  test('planted fault: a select squeezed to its arrow is reported', { timeout: TEST_TIMEOUT }, async () => {
+    await onRestartPolicy(phoneAt(359), async (page) => {
+      await page.addStyleTag({ content: `:root:root:root body ${RESTART_SELECT} { width: 41px !important }` });
+      const problems = await restartSelectProblems(page);
+      assert.equal(problems.length, RESTART_OPTIONS.length, `got: ${problems.join('; ')}`);
+    });
+  });
+
+  // Planted fault: the vendor's table layout back on the restart policy.
+  test('planted fault: the vendor table layout is reported at 359px', { timeout: TEST_TIMEOUT }, async () => {
+    await onRestartPolicy(phoneAt(359), async (page) => {
+      await page.addStyleTag({ content: VENDOR_RESTART_LAYOUT });
+      await page.waitForTimeout(350);
+      const problems = await restartSelectProblems(page);
+      assert.ok(
+        problems.some((p) => /needs/.test(p)),
+        `got: ${problems.join('; ')}`
+      );
+    });
+  });
+});
+
+describe('the retry count of the restart policy is visible on phones', () => {
+  // Mutation: as above. The field is 26px wide at 330px (its padding alone is 24px), 41px at 359px and 84px up to 599px;
+  // a three digit count needs about 50px.
+  for (const viewport of RESTART_WIDTHS) {
+    test(`the field shows its number at ${viewport.name}`, { timeout: TEST_TIMEOUT }, async () => {
+      await onRestartPolicy(viewport, async (page) => {
+        assert.deepEqual(await restartFieldProblems(page), []);
+      });
+    });
+  }
+
+  test('planted fault: a field squeezed to its padding is reported', { timeout: TEST_TIMEOUT }, async () => {
+    await onRestartPolicy(phoneAt(340), async (page) => {
+      await page.addStyleTag({ content: `:root:root:root body ${RESTART_RETRIES} { width: 29px !important }` });
+      const problems = await restartFieldProblems(page);
+      assert.equal(problems.length, 2, `got: ${problems.join('; ')}`);
+    });
+  });
+});
+
+describe('the labels of the restart policy keep every word whole on phones', () => {
+  // Mutation: as above. "Maximum" is cut in two at 340-390px ("Name" too with the text spacing widened, up to 480px): the
+  // label sits in a cell 48-64px wide, which the label floor of the key/value tables leaves out because it is a table in a cell.
+  for (const viewport of [phoneAt(320), phoneAt(330), phone340, phoneAt(344), phone359, phoneAt(390), phoneAt(429), phoneAt(480), phoneAt(599)]) {
+    for (const spacing of [false, true]) {
+      test(`no word is cut at ${viewport.name}${spacing ? ' with the text spacing widened' : ''}`, { timeout: TEST_TIMEOUT }, async () => {
+        await onRestartPolicy(
+          viewport,
+          async (page) => {
+            assert.deepEqual(await restartLabelProblems(page), []);
+          },
+          { spacing }
+        );
+      });
+    }
+  }
+
+  test('planted fault: a word cut in two is reported', { timeout: TEST_TIMEOUT }, async () => {
+    await onRestartPolicy(phone340, async (page) => {
+      await page.addStyleTag({ content: VENDOR_RESTART_LAYOUT });
+      await page.waitForTimeout(350);
+      const problems = await restartLabelProblems(page);
+      assert.ok(
+        problems.some((p) => /"Maximum" is cut/.test(p)),
+        `got: ${problems.join('; ')}`
+      );
+    });
+  });
+});
+
+describe("a container's details table stays inside its card on the narrowest phones", () => {
+  // Mutation: as above. The restart policy's row makes the details table 5px wider than its card at 330px (15px with the text
+  // spacing widened, up to 340px).
+  for (const viewport of [phoneAt(330), phone340, phoneAt(344), phone359]) {
+    for (const spacing of [false, true]) {
+      test(`at ${viewport.name}${spacing ? ' with the text spacing widened' : ''}`, { timeout: TEST_TIMEOUT }, async () => {
+        await onRestartPolicy(
+          viewport,
+          async (page) => {
+            for (const label of ['None', 'On Failure']) {
+              await page.selectOption(RESTART_SELECT, { label });
+              const m = await page.evaluate(measureDetailsTable);
+              assert.ok(m, 'no details table in the page');
+              assert.deepEqual(m, { right: 0, left: 0, page: 0 }, `with "${label}" chosen the details table is past its card`);
+            }
+          },
+          { spacing }
+        );
+      });
+    }
+  }
+
+  test('planted fault: a details table past its card is reported', { timeout: TEST_TIMEOUT }, async () => {
+    await onRestartPolicy(phoneAt(330), async (page) => {
+      await page.addStyleTag({ content: VENDOR_RESTART_LAYOUT });
+      await page.waitForTimeout(350);
+      const m = await page.evaluate(measureDetailsTable);
+      assert.ok(m.right > 1, `got: ${JSON.stringify(m)}`);
+    });
+  });
+});
+
+describe('the restart policy keeps the vendor layout from 600px wide', () => {
+  // Mutation: widen the media query of the restart policy rules to 991px (or take it off): the form is stacked on tablets and
+  // desktops, which have the room for one row.
+  const oneRow = () => {
+    const table = document.querySelector("table[data-cy='container-restart-policy-table']");
+    const cells = [...table.querySelectorAll('tbody > tr:first-child > td')].map((cell) => cell.getBoundingClientRect());
+    return { display: getComputedStyle(table).display, tops: cells.map((rect) => Math.round(rect.top)), widths: cells.map((rect) => Math.round(rect.width)) };
+  };
+
+  for (const viewport of [phoneAt(600), tablet, tablet991, VIEWPORTS.desktop992, VIEWPORTS.desktop1440, VIEWPORTS.desktop1920]) {
+    test(`a table with name, select and button in one row at ${viewport.name}`, { timeout: TEST_TIMEOUT }, async () => {
+      await onRestartPolicy(viewport, async (page) => {
+        const m = await page.evaluate(oneRow);
+        assert.equal(m.display, 'table');
+        assert.equal(m.tops.length, 3);
+        assert.equal(new Set(m.tops).size, 1, `the cells are on different lines: ${JSON.stringify(m)}`);
+        assert.deepEqual(await restartSelectProblems(page), []);
+      });
+    });
+  }
 });
