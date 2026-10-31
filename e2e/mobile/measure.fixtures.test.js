@@ -266,6 +266,47 @@ describe('measureLinkContrasts', () => {
     const found = await problems('<a href="#" style="color:#026aa2"><span style="color:#0086c9">inner text</span></a>');
     assert.equal(found.length, 1);
   });
+
+  // Link-style buttons are read with their own selector: a button of the light blue on a dark panel is reported, and one
+  // with the pale text that panel needs is not. Text links are not mistaken for buttons, nor buttons for links.
+  describe('link-style buttons', () => {
+    const buttonProblems = async (body) => measure.lowContrastLinks(await run(measure.measureLinkContrasts, body, '.btn-link'));
+
+    test('fails: the darker blue on a dark panel is 2.28:1', async () => {
+      const found = await buttonProblems(
+        '<div style="background:#2e2f33;padding:8px"><button class="btn btn-link" style="color:#026aa2;border:0;background:none">dismiss</button></div>'
+      );
+      assert.equal(found.length, 1);
+      assert.match(found[0], /2\.28:1/);
+    });
+
+    test('passes: pale text on a dark panel, and the darker blue on white', async () => {
+      assert.deepEqual(
+        await buttonProblems('<div style="background:#2e2f33;padding:8px"><button class="btn btn-link" style="color:#f7f6f3;border:0;background:none">dismiss</button></div>'),
+        []
+      );
+      assert.deepEqual(await buttonProblems('<button class="btn btn-link" style="color:#026aa2;border:0;background:none">Logs</button>'), []);
+    });
+
+    test('fails: the vendor blue on white is 4.00:1', async () => {
+      const found = await buttonProblems('<button class="btn btn-link" style="color:#0086c9;border:0;background:none">Inspect</button>');
+      assert.equal(found.length, 1);
+      assert.match(found[0], /4\.00:1/);
+    });
+
+    test('reads only what the selector names', async () => {
+      const body =
+        '<a href="#" style="color:#0086c9">a text link</a><button class="btn btn-link" style="color:#0086c9;border:0;background:none">a button</button><button disabled class="btn btn-link" style="color:#999;border:0;background:none">off</button>';
+      assert.deepEqual(
+        (await run(measure.measureLinkContrasts, body, '.btn-link')).map((e) => e.text),
+        ['a button']
+      );
+      assert.deepEqual(
+        (await run(measure.measureLinkContrasts, body)).map((e) => e.text),
+        ['a text link']
+      );
+    });
+  });
 });
 
 describe('readBackgroundImages', () => {

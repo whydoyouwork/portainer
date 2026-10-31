@@ -181,7 +181,8 @@ function findSmallTargets(min) {
 }
 
 // The colour of every visible link's text against what is painted behind it (WCAG 1.4.3 asks 4.5:1 for text).
-// Runs in the page and returns one entry per link: { text, color, background, ratio, unreadable }.
+// Runs in the page and returns one entry per link: { text, color, background, ratio, unreadable }. `selector` says
+// what is read: text links (`a`, the default) or link-style buttons (`.btn-link`), which sit on dark panels too.
 //
 // The background is what the browser paints at the middle of the first word, found by hit-testing: every
 // element under that point is a layer, from the link down to the first opaque one, and translucent layers are
@@ -190,7 +191,7 @@ function findSmallTargets(min) {
 // Links that are not read: icon-only links (no text), links of a disabled control (WCAG 1.4.3 exempts inactive
 // components, e.g. the "Output" tab of the image build form before a build has run), and links that are not on the
 // page (hidden, or the closed drawer, which is moved out of the window to the left).
-function measureLinkContrasts() {
+function measureLinkContrasts(selector = 'a') {
   function parse(color) {
     const m = color.match(/rgba?\(([^)]+)\)/);
     if (!m) return { r: 0, g: 0, b: 0, a: 0 };
@@ -210,7 +211,7 @@ function measureLinkContrasts() {
   const rgb = (c) => `rgb(${Math.round(c.r)}, ${Math.round(c.g)}, ${Math.round(c.b)})`;
 
   const entries = [];
-  for (const el of document.body.querySelectorAll('a')) {
+  for (const el of document.body.querySelectorAll(selector)) {
     if (el.closest('[aria-hidden="true"], [inert], .tippy-box, #loading-bar, .sr-only')) continue;
     if (el.closest('.disabled, [disabled], [aria-disabled="true"]')) continue;
     if (!el.checkVisibility({ opacityProperty: true, visibilityProperty: true })) continue;
@@ -267,7 +268,7 @@ function measureLinkContrasts() {
       background: unreadable ? 'a background image' : rgb(background),
       ratio: unreadable ? 0 : (hi + 0.05) / (lo + 0.05),
       unreadable,
-      index: [...document.body.querySelectorAll('a')].indexOf(el),
+      index: [...document.body.querySelectorAll(selector)].indexOf(el),
       foreground: { r: foreground.r, g: foreground.g, b: foreground.b },
     });
   }
@@ -277,7 +278,7 @@ function measureLinkContrasts() {
 // For the entries on a background image: the link's text is made transparent, the first word's box is captured, and
 // the contrast is the lowest that the text colour has against any pixel of the capture (so a pale patch of a picture
 // under the word counts, and the worst place is what is judged). Entries that cannot be captured stay unreadable.
-async function readBackgroundImages(page, browser, entries) {
+async function readBackgroundImages(page, browser, entries, selector = 'a') {
   const { lowestContrast } = require('./pixels');
   const result = [];
   for (const entry of entries) {
@@ -285,25 +286,28 @@ async function readBackgroundImages(page, browser, entries) {
       result.push(entry);
       continue;
     }
-    const box = await page.evaluate((index) => {
-      const el = document.body.querySelectorAll('a')[index];
-      if (!el) return null;
-      el.scrollIntoView({ block: 'center', inline: 'center', behavior: 'instant' });
-      const style = document.createElement('style');
-      style.id = 'link-contrast-probe';
-      style.textContent = '[data-link-contrast-probe], [data-link-contrast-probe] * { color: transparent !important; text-shadow: none !important; text-decoration-color: transparent !important; }';
-      document.head.appendChild(style);
-      el.setAttribute('data-link-contrast-probe', '');
-      const walker = document.createTreeWalker(el, NodeFilter.SHOW_TEXT);
-      for (let node = walker.nextNode(); node; node = walker.nextNode()) {
-        if (!node.textContent.trim() || !node.parentElement.checkVisibility({ opacityProperty: true, visibilityProperty: true })) continue;
-        const range = document.createRange();
-        range.selectNodeContents(node);
-        const r = range.getClientRects()[0];
-        if (r) return { x: Math.max(0, Math.floor(r.left)), y: Math.max(0, Math.floor(r.top)), width: Math.ceil(r.width), height: Math.ceil(r.height) };
-      }
-      return null;
-    }, entry.index);
+    const box = await page.evaluate(
+      ({ index, selector: sel }) => {
+        const el = document.body.querySelectorAll(sel)[index];
+        if (!el) return null;
+        el.scrollIntoView({ block: 'center', inline: 'center', behavior: 'instant' });
+        const style = document.createElement('style');
+        style.id = 'link-contrast-probe';
+        style.textContent = '[data-link-contrast-probe], [data-link-contrast-probe] * { color: transparent !important; text-shadow: none !important; text-decoration-color: transparent !important; }';
+        document.head.appendChild(style);
+        el.setAttribute('data-link-contrast-probe', '');
+        const walker = document.createTreeWalker(el, NodeFilter.SHOW_TEXT);
+        for (let node = walker.nextNode(); node; node = walker.nextNode()) {
+          if (!node.textContent.trim() || !node.parentElement.checkVisibility({ opacityProperty: true, visibilityProperty: true })) continue;
+          const range = document.createRange();
+          range.selectNodeContents(node);
+          const r = range.getClientRects()[0];
+          if (r) return { x: Math.max(0, Math.floor(r.left)), y: Math.max(0, Math.floor(r.top)), width: Math.ceil(r.width), height: Math.ceil(r.height) };
+        }
+        return null;
+      },
+      { index: entry.index, selector }
+    );
     let png = null;
     try {
       if (box) {

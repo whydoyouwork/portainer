@@ -1,7 +1,8 @@
 // Text links on phones and tablets: every visible link has 4.5:1 or more against what is painted behind it
 // (WCAG 1.4.3), on every view the application links to, in the light theme. The dark and high contrast themes keep
 // the vendor's colours, and so do widths from 992px; links that carry a colour of their own (buttons, tabs, the
-// breadcrumbs, the drawer) are not recoloured.
+// breadcrumbs, the drawer) are not recoloured. Link-style buttons (`.btn-link`) are read the same way, against
+// what is really behind each one: some sit on a dark panel, where the darker blue that suits white is unreadable.
 //
 // The views come from following the application's links (lib/crawl.js). The measurement is in lib/measure.js and
 // has its own fixtures (measure.fixtures.test.js).
@@ -25,6 +26,10 @@ const VENDOR_BLUE = 'rgb(0, 134, 201)'; // blue-8, 4.0:1 on white
 const LINK_BLUE = 'rgb(2, 106, 162)'; // blue-9
 const LINK_BLUE_HOVER = 'rgb(6, 89, 134)'; // blue-10
 const VENDOR_DOC_BLUE = 'rgb(51, 122, 183)'; // the link of a help text beside a web editor, 4.14:1 on its grey panel
+const BUTTON_LINK = '.btn-link';
+const DISMISS = '[data-cy="dismiss-information-panel-button"]';
+const MIN_BUTTONS = 10; // a measurement that reads no buttons would pass everything
+const NEWS_BUTTON_TEXT = 'rgb(247, 246, 243)'; // the text of the news panel's button, 12.37:1 on its dark panel
 
 // The news banner is remote content; a small notice with a link in it stands in for it (the same for every run).
 const NOTICE = JSON.stringify({
@@ -55,9 +60,10 @@ async function setTheme(page, theme) {
   await page.waitForTimeout(250);
 }
 
-// The links on the page, with the contrast of each one; those on a background image are read from the pixels.
-async function readLinks(page) {
-  return readBackgroundImages(page, browser, await page.evaluate(measureLinkContrasts));
+// The links (or, with a selector, the link-style buttons) on the page, with the contrast of each one; those on a
+// background image are read from the pixels.
+async function readLinks(page, selector = 'a') {
+  return readBackgroundImages(page, browser, await page.evaluate(measureLinkContrasts, selector), selector);
 }
 
 async function open(page, route, theme = 'light') {
@@ -84,14 +90,19 @@ describe('every visible link reaches 4.5:1 in the light theme', () => {
       await withPage(browser, storageState, viewport, async (page) => {
         const failures = [];
         let checked = 0;
+        let buttons = 0;
         for (const route of found.routes) {
           await open(page, route);
           const entries = await readLinks(page);
           checked += entries.length;
           for (const problem of lowContrastLinks(entries)) failures.push(`${route} ${problem}`);
+          const buttonEntries = await readLinks(page, BUTTON_LINK);
+          buttons += buttonEntries.length;
+          for (const problem of lowContrastLinks(buttonEntries)) failures.push(`${route} button ${problem}`);
         }
         // a measurement that reads no links would pass everything
         assert.ok(checked >= 100, `only ${checked} links were read on ${found.routes.length} views`);
+        assert.ok(buttons >= MIN_BUTTONS, `only ${buttons} link-style buttons were read on ${found.routes.length} views`);
         assert.deepEqual(failures, [], `${failures.length} link(s) under 4.5:1 at ${viewport.name}:\n${failures.join('\n')}`);
       });
     });
@@ -136,6 +147,65 @@ describe('every visible link reaches 4.5:1 in the light theme', () => {
       assert.ok(entries.length >= 1, 'no documentation link beside the web editor');
       assert.deepEqual(lowContrastLinks(entries), []);
       for (const e of entries) assert.notEqual(e.background, 'rgb(255, 255, 255)', 'the link is not on a tinted panel, so this checks nothing');
+    });
+  });
+});
+
+// The "dismiss" button of the news panel on the Home view is a link-style button on a dark panel, in every theme. It has a
+// colour of its own, so the darker blue that the other link-style buttons use on white must not reach it.
+// Mutation: take the theme conditions of the `.btn-link` rule of bootstrap-mobile.css out of `where` (its specificity is
+// then higher than the news panel's rule, and the button is #026aa2 on #2e2f33, 2.28:1, 1.77:1 on hover).
+describe('the dismiss button of the news panel keeps its colours', () => {
+  for (const viewport of [phone390, tablet, tablet991]) {
+    test(`it is readable at rest and on hover in the light theme at ${viewport.name}`, { timeout: TEST_TIMEOUT }, async () => {
+      await onView(viewport, '#!/home', async (page) => {
+        const button = page.locator(DISMISS);
+        assert.equal(await button.count(), 1, 'the news panel has no dismiss button');
+        const rest = await readLinks(page, DISMISS);
+        assert.equal(rest.length, 1);
+        assert.equal(rest[0].color, NEWS_BUTTON_TEXT);
+        assert.deepEqual(lowContrastLinks(rest), []);
+        await button.hover();
+        await page.waitForTimeout(250);
+        const hovered = await readLinks(page, DISMISS);
+        assert.equal(hovered[0].color, NEWS_BUTTON_TEXT, 'hover changes the colour');
+        assert.deepEqual(lowContrastLinks(hovered), []);
+      });
+    });
+  }
+
+  for (const [theme, viewport] of [
+    ['dark', phone390],
+    ['highcontrast', phone390],
+  ]) {
+    test(`it is readable in the ${theme} theme at ${viewport.name}`, { timeout: TEST_TIMEOUT }, async () => {
+      await onView(
+        viewport,
+        '#!/home',
+        async (page) => {
+          const rest = await readLinks(page, DISMISS);
+          assert.equal(rest.length, 1);
+          assert.deepEqual(lowContrastLinks(rest), []);
+        },
+        theme
+      );
+    });
+  }
+
+  // Planted fault: the darker blue of the light theme's link-style buttons put on the button.
+  test('planted fault: the blue of the link-style buttons on the dark panel is reported', { timeout: TEST_TIMEOUT }, async () => {
+    await onView(phone390, '#!/home', async (page) => {
+      await page.addStyleTag({ content: `:root:root:root body ${DISMISS} { color: ${LINK_BLUE} !important }` });
+      const problems = lowContrastLinks(await readLinks(page, DISMISS));
+      assert.equal(problems.length, 1, `got: ${problems.join('; ')}`);
+      assert.match(problems[0], /2\.28:1/);
+    });
+  });
+
+  // From 992px up the vendor's colours stay.
+  test(`it keeps the vendor's colours at ${desktop1440.name}`, { timeout: TEST_TIMEOUT }, async () => {
+    await onView(desktop1440, '#!/home', async (page) => {
+      assert.equal(await page.locator(DISMISS).evaluate((el) => getComputedStyle(el).color), NEWS_BUTTON_TEXT);
     });
   });
 });
@@ -194,13 +264,18 @@ describe('link colours on phones and tablets', () => {
       await withPage(browser, storageState, phone390, async (page) => {
         const failures = [];
         let checked = 0;
+        let buttons = 0;
         for (const route of found.routes) {
           await open(page, route, theme);
           const entries = await readLinks(page);
           checked += entries.length;
           for (const problem of lowContrastLinks(entries)) failures.push(`${route} ${problem}`);
+          const buttonEntries = await readLinks(page, BUTTON_LINK);
+          buttons += buttonEntries.length;
+          for (const problem of lowContrastLinks(buttonEntries)) failures.push(`${route} button ${problem}`);
         }
         assert.ok(checked >= 100, `only ${checked} links were read`);
+        assert.ok(buttons >= MIN_BUTTONS, `only ${buttons} link-style buttons were read`);
         assert.deepEqual(failures, [], `${failures.length} link(s) under 4.5:1 in the ${theme} theme:\n${failures.join('\n')}`);
         await open(page, USERS, theme);
         assert.equal(await plainLink(page).evaluate((el) => getComputedStyle(el).color), colour);
