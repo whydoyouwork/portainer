@@ -17,3 +17,14 @@
 .root [data-user-value] {
   font-weight: bold;
 }
+
+/* Tablets and phones: the input has no border or outline of its own (the box around it draws the field), so
+   nothing shows that it has focus. The box shows Bootstrap's own focus ring while the input has focus, inside its
+   edge where nothing clips it. */
+@media only screen and (max-width: 991px) {
+  .root:focus-within {
+    outline: 2px solid currentColor;
+    outline: -webkit-focus-ring-color auto 5px;
+    outline-offset: -2px;
+  }
+}
