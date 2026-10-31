@@ -8,6 +8,7 @@ const assert = require('node:assert/strict');
 
 const { launch, signIn, openView, withPage, settle } = require('./lib/browser');
 const { targetURL, VIEWPORTS } = require('./lib/config');
+const { findOffScreen } = require('./lib/measure');
 
 const { phone320, phone390, tablet767, tablet, tablet991 } = VIEWPORTS;
 const BASE_URL = targetURL();
@@ -326,6 +327,93 @@ describe('the label column of a key/value table keeps every word whole on the na
       });
       const problems = await labelWordProblems(page);
       assert.ok(problems.some((p) => /is cut over/.test(p)), `got: ${problems.join('; ')}`);
+    });
+  });
+});
+
+// ---- text spacing: the label column does not push the page sideways ------------------------------------------------------
+
+// WCAG 1.4.12: a reader may set the line height to 1.5, the paragraph spacing to 2 times the text size, the letter spacing to
+// 0.12 and the word spacing to 0.16 of it. The text then takes more room; the page must not scroll sideways because of it.
+const TEXT_SPACING = '* { line-height: 1.5 !important; letter-spacing: 0.12em !important; word-spacing: 0.16em !important; } p { margin-bottom: 2em !important; }';
+
+// The tables of a card that are wider than the card itself (the table is laid out full width inside it, over the card's
+// padding), outside a scroller. The page is only as wide as the window, so a table that spills out of its card by less than
+// the page's gutter does not scroll the page: the card's border is crossed by the table's rules.
+function measureTablesPastCards() {
+  const past = [];
+  for (const table of document.querySelectorAll('.widget-body table.table')) {
+    if (table.closest('td, .table-responsive, [role="region"]') || table.getClientRects().length === 0) continue;
+    const card = table.closest('.widget').getBoundingClientRect();
+    const box = table.getBoundingClientRect();
+    if (box.right > card.right + 1 || box.left < card.left - 1) {
+      past.push(
+        `a table of ${Math.round(box.width)}px spans ${Math.round(box.left)}..${Math.round(box.right)} in a card that spans ${Math.round(card.left)}..${Math.round(card.right)}`
+      );
+    }
+  }
+  return past;
+}
+
+describe('a key/value table stays inside its card on the narrowest phones', () => {
+  // Mutation: remove the restart policy rules of mobile.css: its row of three cells needs more room than the card has,
+  // and the table spills 15px out of the card at 320px (and the page scrolls sideways by 9px with the text spacing widened).
+  for (const viewport of [phone320, phone340, phone359]) {
+    test(`a container's page at ${viewport.name}`, { timeout: TEST_TIMEOUT }, async () => {
+      await onDetails(viewport, async (page) => {
+        assert.deepEqual(await page.evaluate(measureTablesPastCards), []);
+      });
+    });
+  }
+
+  // Planted fault: the restart policy's table back to a table row, as it is without the rules.
+  test('planted fault: a table that spills out of its card is reported', { timeout: TEST_TIMEOUT }, async () => {
+    await onDetails(phone320, async (page) => {
+      await page.addStyleTag({
+        content: `:root:root:root body table[data-cy='container-restart-policy-table'] { display: table !important } :root:root:root body table[data-cy='container-restart-policy-table'] > tbody { display: table-row-group !important } :root:root:root body table[data-cy='container-restart-policy-table'] > tbody > tr { display: table-row !important; height: 50px !important }`,
+      });
+      const problems = await page.evaluate(measureTablesPastCards);
+      assert.equal(problems.length, 1, `got: ${problems.join('; ')}`);
+    });
+  });
+});
+
+describe('the page does not scroll sideways when the text spacing is widened', () => {
+  // Mutation: remove the restart policy rules of mobile.css (the build before they were added): its row of three cells cannot
+  // give 10px to a wider "Update", and the page is 329px wide in a 320px window.
+  for (const viewport of [phone320, phone340, phone359]) {
+    test(`a container's page at ${viewport.name}`, { timeout: TEST_TIMEOUT }, async () => {
+      await onDetails(viewport, async (page) => {
+        await page.addStyleTag({ content: TEXT_SPACING });
+        await page.waitForTimeout(350);
+        assert.deepEqual(await page.evaluate(findOffScreen), []);
+      });
+    });
+  }
+
+  test(`an image's page at ${phone320.name}`, { timeout: TEST_TIMEOUT }, async () => {
+    await withPage(browser, storageState, phone320, async (page) => {
+      await openView(page, BASE_URL, imageHash);
+      await page.waitForSelector('.widget-body table');
+      await page.addStyleTag({ content: TEXT_SPACING });
+      await page.waitForTimeout(350);
+      assert.deepEqual(await page.evaluate(findOffScreen), []);
+    });
+  });
+
+  // Planted fault: the restart policy's table back to a table row, as it is without the rules of mobile.css.
+  test('planted fault: a restart policy row that cannot wrap is reported at 320px', { timeout: TEST_TIMEOUT }, async () => {
+    await onDetails(phone320, async (page) => {
+      await page.addStyleTag({
+        content: `:root:root:root body table[data-cy='container-restart-policy-table'] { display: table !important } :root:root:root body table[data-cy='container-restart-policy-table'] > tbody { display: table-row-group !important } :root:root:root body table[data-cy='container-restart-policy-table'] > tbody > tr { display: table-row !important; height: 50px !important }`,
+      });
+      await page.addStyleTag({ content: TEXT_SPACING });
+      await page.waitForTimeout(350);
+      const problems = await page.evaluate(findOffScreen);
+      assert.ok(
+        problems.some((p) => /the page is \d+px wide in a 320px window/.test(p)),
+        `got: ${problems.join('; ')}`
+      );
     });
   });
 });
