@@ -1347,7 +1347,8 @@ describe('link-style buttons on phones and tablets', () => {
 // ---- 16: keyboard focus is visible on controls that the vendor gives no ring --------------------------------
 
 // The controls, the page that has them, and the part of the page that holds the painted control (the checkboxes
-// of a table are drawn by their label, so the ring is checked around the box and not around the hidden input).
+// of a table are drawn by their label, so the ring is checked around the box and not around the hidden input; the
+// image field's input sits in the box that draws the field, so the ring is checked around that box).
 const FOCUS_TARGETS = {
   'the refresh button': { hash: CONTAINER, selector: 'button[data-cy="refresh-page-button"]', cover: true },
   'the search field of a table': { hash: CONTAINER, selector: 'input[data-cy^="docker-containers-datatable-header"]', cover: true },
@@ -1355,6 +1356,15 @@ const FOCUS_TARGETS = {
   'a row checkbox of a table': { hash: CONTAINER, selector: 'input[data-cy^="select-row-checkbox"]', cover: false },
   'the rename button of a container': { hash: () => `#!/1/docker/containers/${containerId}`, selector: 'button[data-cy="container-edit-name-button"]', cover: true },
   'the selected card of a box selector': { hash: '#!/1/docker/containers/new', selector: 'input.sr-only[type="radio"]:checked', box: 'next', cover: true },
+  // The image field is a combobox: its input has no border or outline of its own and sits in a box that draws the field.
+  'the image field of the new container form': {
+    hash: '#!/1/docker/containers/new',
+    selector: 'input[data-cy="component-imageInput"]',
+    box: 'parent',
+    cover: true,
+    combobox: true,
+  },
+  'the image field of the pull form': { hash: '#!/1/docker/images', selector: 'input[data-cy="component-imageInput"]', box: 'parent', cover: true, combobox: true },
 };
 
 // A keyboard user focuses the control: the pixels around it change (a ring is painted), the ring stands out 3:1
@@ -1373,12 +1383,12 @@ async function focusRingOnce(page, { selector, box = 'self', cover }, what) {
   const control = page.locator(selector).first();
   if ((await control.count()) === 0) return { problems: [`${what}: no control matches ${selector}`] };
   await control.evaluate((el, boxOf) => {
-    (boxOf === 'next' ? el.nextElementSibling : el).scrollIntoView({ block: 'center', behavior: 'instant' });
+    (boxOf === 'next' ? el.nextElementSibling : boxOf === 'parent' ? el.parentElement : el).scrollIntoView({ block: 'center', behavior: 'instant' });
     el.blur();
   }, box);
   await page.waitForTimeout(300);
   const rect = await control.evaluate((el, boxOf) => {
-    const r = (boxOf === 'next' ? el.nextElementSibling : el).getBoundingClientRect();
+    const r = (boxOf === 'next' ? el.nextElementSibling : boxOf === 'parent' ? el.parentElement : el).getBoundingClientRect();
     return { x: r.x, y: r.y, width: r.width, height: r.height };
   }, box);
   const margin = 8;
@@ -1397,7 +1407,7 @@ async function focusRingOnce(page, { selector, box = 'self', cover }, what) {
   await page.waitForTimeout(250);
   const held = await control.evaluate(
     (el, { boxOf, at }) => {
-      const r = (boxOf === 'next' ? el.nextElementSibling : el).getBoundingClientRect();
+      const r = (boxOf === 'next' ? el.nextElementSibling : boxOf === 'parent' ? el.parentElement : el).getBoundingClientRect();
       return document.activeElement === el && r.x === at.x && r.y === at.y;
     },
     { boxOf: box, at: rect }
@@ -1427,13 +1437,26 @@ const STRONG_NO_RINGS =
 const hashOf = (target) => (typeof target.hash === 'function' ? target.hash() : target.hash);
 
 describe('keyboard focus is visible on phones and tablets', () => {
-  // Mutation: remove the focus rules of bootstrap-mobile.css, datatable.css and BoxOption.module.css (as in 5be42f2):
-  // the vendor takes the ring off these controls, and nothing is painted when one has focus.
-  for (const viewport of [phone390, tablet, tablet991]) {
+  // Mutation: remove the focus rules of bootstrap-mobile.css, datatable.css, BoxOption.module.css and
+  // AutocompleteSelect.module.css (as in 5be42f2): the vendor takes the ring off these controls (and never gave the
+  // image field one), and nothing is painted when one has focus.
+  for (const viewport of [phone390, phoneLandscape, tablet, tablet991]) {
     for (const [name, target] of Object.entries(FOCUS_TARGETS)) {
       test(`${name} shows a focus ring at ${viewport.name}`, { timeout: TEST_TIMEOUT }, async () => {
         await onView(viewport, hashOf(target), async (page) => {
           assert.deepEqual(await focusRingProblems(page, target, name), []);
+        });
+      });
+    }
+  }
+
+  // The ring of the image field is as visible in the dark and high contrast themes.
+  for (const theme of ['dark', 'highcontrast']) {
+    for (const name of ['the image field of the new container form', 'the image field of the pull form']) {
+      test(`${name} shows a focus ring in the ${theme} theme at ${phone390.name}`, { timeout: TEST_TIMEOUT }, async () => {
+        await onView(phone390, hashOf(FOCUS_TARGETS[name]), async (page) => {
+          await setTheme(page, theme);
+          assert.deepEqual(await focusRingProblems(page, FOCUS_TARGETS[name], name), []);
         });
       });
     }
@@ -1481,11 +1504,135 @@ describe('keyboard focus is visible on phones and tablets', () => {
   // Mutation: take the media queries off the focus rules.
   for (const viewport of [desktop992, desktop1440]) {
     for (const [name, target] of Object.entries(FOCUS_TARGETS)) {
+      if (target.combobox) continue; // the field's own test is below: the vendor's build already paints a 5px mark in the field when it is focused (16 pixels, 1.01:1)
       test(`${name} keeps the vendor's look (no ring added) at ${viewport.name}`, { timeout: TEST_TIMEOUT }, async () => {
         await onView(viewport, hashOf(target), async (page) => {
           assert.deepEqual(await focusRingProblems(page, target, name), [`${name}: no focus ring is painted`]);
         });
       });
     }
+
+    for (const name of ['the image field of the new container form', 'the image field of the pull form']) {
+      test(`${name} keeps the vendor's look (no outline on its box) at ${viewport.name}`, { timeout: TEST_TIMEOUT }, async () => {
+        await onView(viewport, hashOf(FOCUS_TARGETS[name]), async (page) => {
+          assert.equal(await imageFieldOutline(page, FOCUS_TARGETS[name]), 'none');
+        });
+      });
+    }
   }
+});
+
+// The outline style that the box around the image field has while the field has keyboard focus: `auto` when a ring is drawn.
+async function imageFieldOutline(page, { selector }) {
+  const field = page.locator(selector).first();
+  await field.evaluate((el) => el.parentElement.scrollIntoView({ block: 'center', behavior: 'instant' }));
+  await page.keyboard.press('Shift');
+  await field.evaluate((el) => el.focus({ focusVisible: true, preventScroll: true }));
+  await page.waitForTimeout(250);
+  return field.evaluate((el) => getComputedStyle(el.parentElement).outlineStyle);
+}
+
+describe('the box of the image field shows the ring only below 992px', () => {
+  // Mutation: take the media query off the rule of AutocompleteSelect.module.css.
+  for (const viewport of [phone390, tablet991]) {
+    test(`it has an outline while the field has focus at ${viewport.name}`, { timeout: TEST_TIMEOUT }, async () => {
+      await onView(viewport, hashOf(FOCUS_TARGETS['the image field of the new container form']), async (page) => {
+        assert.equal(await imageFieldOutline(page, FOCUS_TARGETS['the image field of the new container form']), 'auto');
+      });
+    });
+  }
+
+  // The same box and the same field serve the other comboboxes (the Kubernetes stack name, the GitOps path).
+  test('it has none while the field has not', { timeout: TEST_TIMEOUT }, async () => {
+    await onView(phone390, hashOf(FOCUS_TARGETS['the image field of the new container form']), async (page) => {
+      const outline = await page
+        .locator(FOCUS_TARGETS['the image field of the new container form'].selector)
+        .first()
+        .evaluate((el) => {
+          el.blur();
+          return getComputedStyle(el.parentElement).outlineStyle;
+        });
+      assert.equal(outline, 'none');
+    });
+  });
+});
+
+// ---- 17: the rings do not depend on a browser that knows WebKit's ring colour --------------------------------
+
+// Chromium and Safari draw `outline: -webkit-focus-ring-color auto 5px`; Firefox does not know that colour, drops the
+// declaration and would paint nothing. Every such ring is therefore written after a standard `outline` that any browser
+// reads. No other browser engine is available to the checks, so this one stands in for it: the style sheets are fetched,
+// every declaration that names `-webkit-focus-ring-color` is cut out (which is what a parser that does not know the colour
+// does), and the page runs on the result.
+//
+// With `dropFallbacks` the standard declarations that the rings are written with are cut out too, which leaves the page
+// as it was before they were added.
+async function ignoreWebKitRingColour(page, { dropFallbacks = false } = {}) {
+  const changed = await page.evaluate(async (drop) => {
+    const webkit = /([;{]\s*)outline\s*:[^;}]*-webkit-focus-ring-color[^;}]*;?/gi;
+    const standard = /([;{]\s*)outline\s*:\s*2px solid (?:currentcolor|var\([^)]*\))\s*(?:!important)?\s*;?/gi;
+    const strip = (css) => (drop ? css.replace(webkit, '$1').replace(standard, '$1') : css.replace(webkit, '$1'));
+    let count = 0;
+    for (const link of [...document.querySelectorAll('link[rel="stylesheet"]')]) {
+      const css = await (await fetch(link.href)).text();
+      const style = document.createElement('style');
+      style.textContent = strip(css);
+      if (style.textContent !== css) count += 1;
+      link.replaceWith(style);
+    }
+    await document.fonts.ready;
+    return count;
+  }, dropFallbacks);
+  assert.ok(changed >= 1, 'no style sheet names the WebKit ring colour, so nothing was cut out');
+  await page.waitForTimeout(400);
+}
+
+describe('the focus rings are drawn by a browser that does not know the WebKit ring colour', () => {
+  // Mutation: write a ring with the `-webkit-focus-ring-color` declaration only (as in 2d18d96): nothing is painted.
+  for (const viewport of [phone390, tablet]) {
+    for (const [name, target] of Object.entries(FOCUS_TARGETS)) {
+      test(`${name} shows a ring at ${viewport.name}`, { timeout: TEST_TIMEOUT }, async () => {
+        await onView(viewport, hashOf(target), async (page) => {
+          await ignoreWebKitRingColour(page);
+          assert.deepEqual(await focusRingProblems(page, target, name), []);
+        });
+      });
+    }
+  }
+
+  // The standard ring stands out 3:1 against the dark and high contrast themes too: it takes the colour of the text.
+  for (const theme of ['dark', 'highcontrast']) {
+    for (const [name, target] of Object.entries(FOCUS_TARGETS)) {
+      test(`${name} shows a ring in the ${theme} theme at ${phone390.name}`, { timeout: TEST_TIMEOUT }, async () => {
+        await onView(phone390, hashOf(target), async (page) => {
+          await setTheme(page, theme);
+          await ignoreWebKitRingColour(page);
+          assert.deepEqual(await focusRingProblems(page, target, name), []);
+        });
+      });
+    }
+  }
+
+  // Planted fault: the standard declarations cut out as well, which is the page of a browser that read only the
+  // WebKit colour before they existed.
+  test('planted fault: a ring written with the WebKit colour only is reported', { timeout: TEST_TIMEOUT }, async () => {
+    await onView(phone390, CONTAINER, async (page) => {
+      await ignoreWebKitRingColour(page, { dropFallbacks: true });
+      for (const name of ['the refresh button', 'a row checkbox of a table', 'the search field of a table']) {
+        const problems = await focusRingProblems(page, FOCUS_TARGETS[name], name);
+        assert.ok(
+          problems.some((p) => /no focus ring is painted/.test(p)),
+          `${name}: got ${problems.join('; ') || 'no problem'}`
+        );
+      }
+    });
+  });
+
+  // From 992px up nothing is added, in this browser or the other.
+  test(`the vendor's look stays at ${desktop1440.name}`, { timeout: TEST_TIMEOUT }, async () => {
+    await onView(desktop1440, CONTAINER, async (page) => {
+      await ignoreWebKitRingColour(page);
+      assert.deepEqual(await focusRingProblems(page, FOCUS_TARGETS['the refresh button'], 'the refresh button'), ['the refresh button: no focus ring is painted']);
+    });
+  });
 });
