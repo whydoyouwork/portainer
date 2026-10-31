@@ -180,4 +180,159 @@ function findSmallTargets(min) {
   return violations;
 }
 
-module.exports = { findOffScreen, findClippedCtas, findTruncated, findOverlaps, findSmallTargets };
+// The colour of every visible link's text against what is painted behind it (WCAG 1.4.3 asks 4.5:1 for text).
+// Runs in the page and returns one entry per link: { text, color, background, ratio, unreadable }.
+//
+// The background is what the browser paints at the middle of the first word, found by hit-testing: every
+// element under that point is a layer, from the link down to the first opaque one, and translucent layers are
+// blended over what lies below them. A background image (a gradient, a picture) cannot be read from colours: that
+// link is returned with `unreadable` set and its `index`, and readBackgroundImages looks at the pixels instead.
+// Links that are not read: icon-only links (no text), links of a disabled control (WCAG 1.4.3 exempts inactive
+// components, e.g. the "Output" tab of the image build form before a build has run), and links that are not on the
+// page (hidden, or the closed drawer, which is moved out of the window to the left).
+function measureLinkContrasts() {
+  function parse(color) {
+    const m = color.match(/rgba?\(([^)]+)\)/);
+    if (!m) return { r: 0, g: 0, b: 0, a: 0 };
+    const [r, g, b, a = 1] = m[1].split(/[ ,/]+/).filter(Boolean).map(Number);
+    return { r, g, b, a };
+  }
+  function luminance({ r, g, b }) {
+    const lin = [r, g, b].map((v) => {
+      const s = v / 255;
+      return s <= 0.03928 ? s / 12.92 : ((s + 0.055) / 1.055) ** 2.4;
+    });
+    return 0.2126 * lin[0] + 0.7152 * lin[1] + 0.0722 * lin[2];
+  }
+  function over(top, bottom) {
+    return { r: top.r * top.a + bottom.r * (1 - top.a), g: top.g * top.a + bottom.g * (1 - top.a), b: top.b * top.a + bottom.b * (1 - top.a), a: 1 };
+  }
+  const rgb = (c) => `rgb(${Math.round(c.r)}, ${Math.round(c.g)}, ${Math.round(c.b)})`;
+
+  const entries = [];
+  for (const el of document.body.querySelectorAll('a')) {
+    if (el.closest('[aria-hidden="true"], [inert], .tippy-box, #loading-bar, .sr-only')) continue;
+    if (el.closest('.disabled, [disabled], [aria-disabled="true"]')) continue;
+    if (!el.checkVisibility({ opacityProperty: true, visibilityProperty: true })) continue;
+
+    // the first word: the first text node with something in it that can be seen (the dashboard's tiles keep a
+    // "Refreshing total" label at opacity 0 in front of the one that shows)
+    let textNode = null;
+    const walker = document.createTreeWalker(el, NodeFilter.SHOW_TEXT);
+    for (let node = walker.nextNode(); node && !textNode; node = walker.nextNode()) {
+      if (node.textContent.trim() && node.parentElement.checkVisibility({ opacityProperty: true, visibilityProperty: true })) textNode = node;
+    }
+    if (!textNode) continue;
+    const first = document.createRange();
+    first.selectNodeContents(textNode);
+    const probe = first.getClientRects()[0];
+    if (!probe || probe.width < 1 || probe.right <= 0) continue;
+
+    el.scrollIntoView({ block: 'center', inline: 'center', behavior: 'instant' });
+    const box = first.getClientRects()[0];
+    const x = Math.min(Math.max(box.left + Math.min(box.width / 2, 6), 0), window.innerWidth - 1);
+    const y = box.top + box.height / 2;
+    const stack = document.elementsFromPoint(x, y);
+    const from = stack.findIndex((e) => el === e || el.contains(e));
+    if (from < 0) continue; // something else is on top of it here: it cannot be read there either
+
+    // below every layer is the page's canvas: the colour of <html>, or the one of <body> when <html> has none (a point
+    // below the end of <body>, where nothing but the canvas is painted, is not hit-tested as <body>)
+    const canvas = [document.documentElement, document.body].map((e) => parse(getComputedStyle(e).backgroundColor)).find((c) => c.a > 0) || { r: 255, g: 255, b: 255, a: 1 };
+    let background = over(canvas, { r: 255, g: 255, b: 255, a: 1 });
+    const layers = [];
+    let unreadable = false;
+    for (const layer of stack.slice(from)) {
+      const style = getComputedStyle(layer);
+      if (style.backgroundImage !== 'none') {
+        unreadable = true;
+        break;
+      }
+      const c = parse(style.backgroundColor);
+      if (c.a > 0) layers.push(c);
+      if (c.a >= 0.999) break;
+    }
+    for (const c of layers.reverse()) background = over(c, background);
+
+    const holder = textNode.parentElement;
+    const style = getComputedStyle(holder);
+    let opacity = 1;
+    for (let n = holder; n; n = n.parentElement) opacity *= Number(getComputedStyle(n).opacity);
+    const text = parse(style.color);
+    const foreground = over({ ...text, a: text.a * opacity }, background);
+    const [hi, lo] = [luminance(foreground), luminance(background)].sort((a, b) => b - a);
+    entries.push({
+      text: (el.textContent || '').trim().replace(/\s+/g, ' ').slice(0, 40),
+      color: style.color,
+      background: unreadable ? 'a background image' : rgb(background),
+      ratio: unreadable ? 0 : (hi + 0.05) / (lo + 0.05),
+      unreadable,
+      index: [...document.body.querySelectorAll('a')].indexOf(el),
+      foreground: { r: foreground.r, g: foreground.g, b: foreground.b },
+    });
+  }
+  return entries;
+}
+
+// For the entries on a background image: the link's text is made transparent, the first word's box is captured, and
+// the contrast is the lowest that the text colour has against any pixel of the capture (so a pale patch of a picture
+// under the word counts, and the worst place is what is judged). Entries that cannot be captured stay unreadable.
+async function readBackgroundImages(page, browser, entries) {
+  const { lowestContrast } = require('./pixels');
+  const result = [];
+  for (const entry of entries) {
+    if (!entry.unreadable) {
+      result.push(entry);
+      continue;
+    }
+    const box = await page.evaluate((index) => {
+      const el = document.body.querySelectorAll('a')[index];
+      if (!el) return null;
+      el.scrollIntoView({ block: 'center', inline: 'center', behavior: 'instant' });
+      const style = document.createElement('style');
+      style.id = 'link-contrast-probe';
+      style.textContent = '[data-link-contrast-probe], [data-link-contrast-probe] * { color: transparent !important; text-shadow: none !important; text-decoration-color: transparent !important; }';
+      document.head.appendChild(style);
+      el.setAttribute('data-link-contrast-probe', '');
+      const walker = document.createTreeWalker(el, NodeFilter.SHOW_TEXT);
+      for (let node = walker.nextNode(); node; node = walker.nextNode()) {
+        if (!node.textContent.trim() || !node.parentElement.checkVisibility({ opacityProperty: true, visibilityProperty: true })) continue;
+        const range = document.createRange();
+        range.selectNodeContents(node);
+        const r = range.getClientRects()[0];
+        if (r) return { x: Math.max(0, Math.floor(r.left)), y: Math.max(0, Math.floor(r.top)), width: Math.ceil(r.width), height: Math.ceil(r.height) };
+      }
+      return null;
+    }, entry.index);
+    let png = null;
+    try {
+      if (box) {
+        await page.waitForTimeout(100);
+        png = await page.screenshot({ clip: box });
+      }
+    } finally {
+      await page.evaluate(() => {
+        document.getElementById('link-contrast-probe')?.remove();
+        document.querySelector('[data-link-contrast-probe]')?.removeAttribute('data-link-contrast-probe');
+      });
+    }
+    if (!png) {
+      result.push(entry);
+      continue;
+    }
+    result.push({ ...entry, unreadable: false, ratio: await lowestContrast(browser, png, entry.foreground), background: 'a background image (lowest of its pixels)' });
+  }
+  return result;
+}
+
+// Turns the entries of measureLinkContrasts into the list of links under `min` (plain Node, not run in the page).
+function lowContrastLinks(entries, min = 4.5) {
+  const found = [];
+  for (const e of entries) {
+    if (e.unreadable) found.push(`"${e.text}" is on a background image, so its contrast cannot be read from colours`);
+    else if (e.ratio + 1e-9 < min) found.push(`"${e.text}" ${e.color} on ${e.background} is ${e.ratio.toFixed(2)}:1`);
+  }
+  return found;
+}
+
+module.exports = { findOffScreen, findClippedCtas, findTruncated, findOverlaps, findSmallTargets, measureLinkContrasts, readBackgroundImages, lowContrastLinks };

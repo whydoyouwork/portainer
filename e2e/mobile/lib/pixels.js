@@ -111,4 +111,45 @@ async function comparePng(browser, expectedPng, actualPng, { channelTolerance = 
   }
 }
 
-module.exports = { comparePng };
+// Runs in the browser: the lowest WCAG contrast ratio that `foreground` has against any pixel of the PNG.
+function lowestContrastInBrowser([base64, foreground]) {
+  const lin = (v) => {
+    const s = v / 255;
+    return s <= 0.03928 ? s / 12.92 : ((s + 0.055) / 1.055) ** 2.4;
+  };
+  const luminance = (r, g, b) => 0.2126 * lin(r) + 0.7152 * lin(g) + 0.0722 * lin(b);
+  return new Promise((resolve, reject) => {
+    const image = new Image();
+    image.onload = () => {
+      const canvas = document.createElement('canvas');
+      canvas.width = image.naturalWidth;
+      canvas.height = image.naturalHeight;
+      const context = canvas.getContext('2d');
+      context.drawImage(image, 0, 0);
+      const { data } = context.getImageData(0, 0, canvas.width, canvas.height);
+      const text = luminance(foreground.r, foreground.g, foreground.b);
+      let lowest = Infinity;
+      for (let i = 0; i < data.length; i += 4) {
+        const [hi, lo] = [text, luminance(data[i], data[i + 1], data[i + 2])].sort((a, b) => b - a);
+        lowest = Math.min(lowest, (hi + 0.05) / (lo + 0.05));
+      }
+      resolve(lowest);
+    };
+    image.onerror = () => reject(new Error('could not decode image'));
+    image.src = `data:image/png;base64,${base64}`;
+  });
+}
+
+// The lowest contrast ratio that `foreground` ({ r, g, b }) has against any pixel of a PNG buffer.
+async function lowestContrast(browser, png, foreground) {
+  const context = await browser.newContext();
+  try {
+    const page = await context.newPage();
+    await page.goto('about:blank');
+    return await page.evaluate(lowestContrastInBrowser, [png.toString('base64'), foreground]);
+  } finally {
+    await context.close();
+  }
+}
+
+module.exports = { comparePng, lowestContrast };

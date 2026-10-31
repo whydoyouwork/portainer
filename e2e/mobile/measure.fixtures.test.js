@@ -204,3 +204,96 @@ describe('findSmallTargets', () => {
     assert.deepEqual(await run(measure.findSmallTargets, '<table><tr><td><button style="height:20px">x</button></td></tr></table>', 24), []);
   });
 });
+
+describe('measureLinkContrasts', () => {
+  const problems = async (body) => measure.lowContrastLinks(await run(measure.measureLinkContrasts, body));
+
+  test('passes: the darker blue on white, white on a dark band', async () => {
+    assert.deepEqual(await problems('<a href="#" style="color:#026aa2">Teams view</a><div style="background:#2e2f33;padding:8px"><a href="#" style="color:#f2f4f7">Containers</a></div>'), []);
+  });
+
+  // Mutation: the vendor's blue (blue-8) on white.
+  test('fails: the vendor blue on white is 4.00:1', async () => {
+    const found = await problems('<a href="#" style="color:#0086c9">Teams view</a>');
+    assert.equal(found.length, 1);
+    assert.match(found[0], /4\.00:1/);
+  });
+
+  // The ratio is taken against the panel the link is on, not against white.
+  test('fails: a link on a tinted panel is measured against the panel', async () => {
+    const found = await problems('<div style="background:#f2f4f7;padding:8px"><a href="#" style="color:#337ab7">official documentation</a></div>');
+    assert.equal(found.length, 1);
+    assert.match(found[0], /4\.14:1/);
+  });
+
+  // A darker link must not be put on a dark background it was never meant for.
+  test('fails: the darker blue on a dark band is under 4.5:1', async () => {
+    assert.equal((await problems('<div style="background:#2e2f33;padding:8px"><a href="#" style="color:#026aa2">Containers</a></div>')).length, 1);
+  });
+
+  test('blends a translucent layer over what lies below it', async () => {
+    const passes = await problems('<div style="background:#fff"><div style="background:rgba(0,0,0,.05);padding:8px"><a href="#" style="color:#026aa2">Teams view</a></div></div>');
+    assert.deepEqual(passes, []);
+    const fails = await problems('<div style="background:#fff"><div style="background:rgba(0,0,0,.25);padding:8px"><a href="#" style="color:#026aa2">Teams view</a></div></div>');
+    assert.equal(fails.length, 1);
+  });
+
+  test('fails: a link on a background image cannot be measured, so it is reported', async () => {
+    const found = await problems('<div style="background:linear-gradient(#fff,#eee);padding:8px"><a href="#" style="color:#026aa2">Learn more</a></div>');
+    assert.equal(found.length, 1);
+    assert.match(found[0], /background image/);
+  });
+
+  test('passes: icon-only, disabled, hidden and covered links are not read', async () => {
+    const entries = await run(
+      measure.measureLinkContrasts,
+      '<a href="#" style="color:#0086c9"><svg width="10" height="10"></svg></a>' +
+        '<ul class="nav"><li class="disabled"><a href="#" style="color:#777">Output</a></li></ul>' +
+        '<a href="#" style="color:#0086c9;visibility:hidden">hidden</a>' +
+        '<a href="#" style="color:#0086c9;position:absolute;left:-400px">off the left edge</a>' +
+        '<a href="#" aria-hidden="true" style="color:#0086c9">aria hidden</a>'
+    );
+    assert.deepEqual(entries, []);
+  });
+
+  // The page's background is the canvas's: <body>'s colour reaches below the end of <body>, where <body> is not hit.
+  // Mutation: start from white instead of the canvas colour.
+  test('passes: a link below the end of a dark body is on the dark canvas', async () => {
+    assert.deepEqual(await problems('<style>body{background:#121212;height:20px}</style><a href="#" style="position:absolute;top:300px;color:#0ba5ec">Business Feature</a>'), []);
+  });
+
+  test('reads the colour of the text, not of the link around it', async () => {
+    const found = await problems('<a href="#" style="color:#026aa2"><span style="color:#0086c9">inner text</span></a>');
+    assert.equal(found.length, 1);
+  });
+});
+
+describe('readBackgroundImages', () => {
+  async function onImage(body) {
+    const context = await browser.newContext({ viewport: { width: 360, height: 740 }, isMobile: true, hasTouch: true });
+    try {
+      const page = await context.newPage();
+      await page.setContent(`<!doctype html><html><head>${HEAD}</head><body>${body}</body></html>`);
+      const entries = await page.evaluate(measure.measureLinkContrasts);
+      assert.equal(entries.length, 1);
+      assert.equal(entries[0].unreadable, true);
+      return measure.lowContrastLinks(await measure.readBackgroundImages(page, browser, entries));
+    } finally {
+      await context.close();
+    }
+  }
+
+  test('passes: a link on a pale gradient is read from the pixels behind it', async () => {
+    assert.deepEqual(await onImage('<div style="background:linear-gradient(#fff,#eee);padding:8px"><a href="#" style="color:#026aa2">Learn more here</a></div>'), []);
+  });
+
+  // The pale blue of a picture under the word is what counts, not the colour at the edge of the box.
+  test('fails: a link over a dark patch of a picture is under 4.5:1', async () => {
+    const found = await onImage(
+      '<div style="background:linear-gradient(90deg,#fff 0,#fff 30px,#1b3a57 30px,#1b3a57 100%);padding:8px 8px 8px 0"><a href="#" style="color:#026aa2;margin-left:20px;display:inline-block;width:160px">Learn more here</a></div>'
+    );
+    assert.equal(found.length, 1);
+    assert.match(found[0], /background image/);
+    assert.match(found[0], /:1$/);
+  });
+});
